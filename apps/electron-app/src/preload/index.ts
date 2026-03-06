@@ -42,6 +42,11 @@ const api = {
     return () => ipcRenderer.removeListener('skill-install-log', handler);
   },
 
+  // Markdown 文件读写 (~/.openclaw/*.md)
+  readMarkdownFile: (filename: string) => ipcRenderer.invoke('read-markdown-file', filename),
+  writeMarkdownFile: (filename: string, content: string) =>
+    ipcRenderer.invoke('write-markdown-file', filename, content),
+
   // 通用命令执行
   executeCommand: (command: string) => ipcRenderer.invoke('execute-command', command),
 

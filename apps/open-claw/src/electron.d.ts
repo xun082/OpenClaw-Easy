@@ -41,6 +41,15 @@ export interface WriteConfigResult {
   error?: string;
 }
 
+export type MarkdownFilename = 'IDENTITY.md' | 'SOUL.md' | 'USER.md' | 'AGENTS.md' | 'MEMORY.md';
+
+export interface ReadMarkdownResult {
+  success: boolean;
+  content: string;
+  path?: string;
+  error?: string;
+}
+
 export interface Skill {
   name: string;
   description: string;
@@ -107,6 +116,10 @@ declare global {
       readOpenclawConfig: () => Promise<ReadConfigResult>;
       writeOpenclawConfig: (content: string) => Promise<WriteConfigResult>;
       checkOpenclawConfigExists: () => Promise<{ exists: boolean; path: string }>;
+
+      // Markdown 文件 (~/.openclaw/*.md)
+      readMarkdownFile: (filename: MarkdownFilename) => Promise<ReadMarkdownResult>;
+      writeMarkdownFile: (filename: MarkdownFilename, content: string) => Promise<WriteConfigResult>;
 
       // 技能
       listSkillFiles: (

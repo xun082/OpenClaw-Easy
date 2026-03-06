@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Globe, Puzzle, Sparkles } from 'lucide-react';
+import { BookOpen, Bot, Globe, Puzzle, Sparkles } from 'lucide-react';
 
 const SUB_NAV = [
   { href: '/skills', label: '工作区', icon: Puzzle },
   { href: '/skills/builtin', label: '内置', icon: BookOpen },
   { href: '/skills/clawhub', label: 'ClawHub', icon: Globe },
   { href: '/skills/ai', label: 'AI 推荐', icon: Sparkles },
+  { href: '/skills/identity', label: '身份配置', icon: Bot },
 ] as const;
 
 export default function SkillsLayout({ children }: { children: React.ReactNode }) {

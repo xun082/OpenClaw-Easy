@@ -152,6 +152,7 @@ export class IpcConfig {
     this.setupAgentAuthHandlers();
     this.setupInstallHandlers();
     this.setupConfigHandlers();
+    this.setupMarkdownFileHandlers();
     this.setupSkillHandlers();
     this.setupEnvToolHandlers();
   }
@@ -926,6 +927,44 @@ export class IpcConfig {
 
     ipcMain.handle('check-openclaw-config-exists', () => {
       return { exists: existsSync(configPath), path: configPath };
+    });
+  }
+
+  // ─── Markdown file handlers (~/.openclaw/workspace/*.md) ────────────────────
+
+  private setupMarkdownFileHandlers(): void {
+    const ALLOWED = new Set(['IDENTITY.md', 'SOUL.md', 'USER.md', 'AGENTS.md', 'MEMORY.md']);
+
+    ipcMain.handle('read-markdown-file', (_: any, filename: string) => {
+      if (!ALLOWED.has(filename)) return { success: false, error: 'not-allowed', content: '' };
+
+      const filePath = join(homedir(), '.openclaw', 'workspace', filename);
+
+      try {
+        const content = readFileSync(filePath, 'utf-8');
+
+        return { success: true, content, path: filePath };
+      } catch (err: any) {
+        if (err.code === 'ENOENT') return { success: true, content: '', path: filePath };
+
+        return { success: false, error: err.message as string, content: '' };
+      }
+    });
+
+    ipcMain.handle('write-markdown-file', (_: any, filename: string, content: string) => {
+      if (!ALLOWED.has(filename)) return { success: false, error: 'not-allowed' };
+
+      const dir = join(homedir(), '.openclaw', 'workspace');
+      const filePath = join(dir, filename);
+
+      try {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(filePath, content, 'utf-8');
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message as string };
+      }
     });
   }
 
