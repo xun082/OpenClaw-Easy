@@ -169,14 +169,25 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     color: '#EC4899',
   },
   {
-    id: 'kimi-cn',
-    name: 'Kimi (国内)',
-    description: 'Moonshot 国内端点 — 推荐国内用户',
+    id: 'kimi-code',
+    name: 'Kimi Code',
+    description: 'Kimi 编码专用 — 订阅制',
     api: 'openai-completions',
-    baseUrl: 'https://api.moonshot.cn/v1',
+    baseUrl: 'https://api.kimi.com/coding/v1',
     authHeader: true,
     keyPlaceholder: 'sk-kimi-...',
     color: '#06B6D4',
+    fullModels: KIMI_K2_MODELS,
+  },
+  {
+    id: 'kimi-cn',
+    name: 'Kimi (国内)',
+    description: 'Moonshot 国内端点 — 按量计费',
+    api: 'openai-completions',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    authHeader: true,
+    keyPlaceholder: 'sk-...',
+    color: '#0891B2',
     fullModels: KIMI_K2_MODELS,
   },
   {
@@ -187,7 +198,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: 'https://api.moonshot.ai/v1',
     authHeader: true,
     keyPlaceholder: 'sk-...',
-    color: '#0891B2',
+    color: '#155E75',
     fullModels: KIMI_K2_MODELS,
   },
   {
@@ -213,12 +224,22 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'minimax',
     name: 'MiniMax',
-    description: 'MiniMax 系列模型',
+    description: 'MiniMax 按量计费',
     api: 'openai-completions',
     baseUrl: 'https://api.minimax.chat/v1',
     authHeader: true,
     keyPlaceholder: 'eyJ...',
     color: '#14B8A6',
+  },
+  {
+    id: 'minimax-coding',
+    name: 'MiniMax Coding',
+    description: 'MiniMax 编码订阅制',
+    api: 'openai-completions',
+    baseUrl: 'https://api.minimaxi.com/v1',
+    authHeader: true,
+    keyPlaceholder: 'sk-...',
+    color: '#0D9488',
   },
   {
     id: 'ollama',
@@ -334,6 +355,13 @@ export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
     { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking', desc: '推理增强' },
     { id: 'kimi-k2-thinking-turbo', name: 'Kimi K2 Thinking Turbo' },
   ],
+  'kimi-code': [
+    { id: 'kimi-k2.5', name: 'Kimi K2.5', desc: '旗舰推荐' },
+    { id: 'kimi-k2-0905-preview', name: 'Kimi K2 0905 Preview' },
+    { id: 'kimi-k2-turbo-preview', name: 'Kimi K2 Turbo', desc: '快速' },
+    { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking', desc: '推理增强' },
+    { id: 'kimi-k2-thinking-turbo', name: 'Kimi K2 Thinking Turbo' },
+  ],
   qwen: [
     { id: 'qwen-max', name: 'Qwen Max', desc: '旗舰' },
     { id: 'qwen-plus', name: 'Qwen Plus', desc: '均衡' },
@@ -348,9 +376,18 @@ export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
     { id: 'glm-4-flash', name: 'GLM-4 Flash', desc: '免费快速' },
   ],
   minimax: [
-    { id: 'MiniMax-Text-01', name: 'MiniMax Text-01', desc: '长文本旗舰' },
-    { id: 'abab6.5s-chat', name: 'ABAB 6.5S', desc: '均衡' },
-    { id: 'abab6.5g-chat', name: 'ABAB 6.5G', desc: '高速' },
+    { id: 'MiniMax-M2.5', name: 'MiniMax M2.5', desc: '最新旗舰' },
+    { id: 'MiniMax-M2.5-highspeed', name: 'MiniMax M2.5 极速', desc: '极速版' },
+    { id: 'MiniMax-M2.1', name: 'MiniMax M2.1' },
+    { id: 'MiniMax-M2', name: 'MiniMax M2' },
+    { id: 'MiniMax-Text-01', name: 'MiniMax Text-01', desc: '长文本' },
+    { id: 'abab6.5s-chat', name: 'ABAB 6.5S' },
+  ],
+  'minimax-coding': [
+    { id: 'MiniMax-M2.5', name: 'MiniMax M2.5', desc: '最新旗舰' },
+    { id: 'MiniMax-M2.5-highspeed', name: 'MiniMax M2.5 极速', desc: '极速版' },
+    { id: 'MiniMax-M2.1', name: 'MiniMax M2.1' },
+    { id: 'MiniMax-M2', name: 'MiniMax M2' },
   ],
   ollama: [
     { id: 'deepseek-r1:7b', name: 'DeepSeek R1 7B', desc: '本地推理' },
@@ -398,8 +435,10 @@ export function resolveModelListKey(providerKey: string, providerConfig: Provide
   const u = (providerConfig.baseUrl ?? '').toLowerCase();
 
   if (u.includes('deepseek.com')) return 'deepseek';
+  if (u.includes('api.kimi.com')) return 'kimi-code';
   if (u.includes('moonshot.cn') || u.includes('moonshot.ai')) return 'moonshot';
   if (u.includes('bigmodel.cn')) return 'glm';
+  if (u.includes('minimaxi.com')) return 'minimax-coding';
   if (u.includes('minimax.chat')) return 'minimax';
   if (u.includes('dashscope.aliyuncs.com')) return 'qwen';
   if (u.includes('venice.ai')) return 'venice';
