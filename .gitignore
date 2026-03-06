@@ -116,6 +116,8 @@ Thumbs.db
 apps/*/dist/
 apps/*/out/
 apps/*/build/
+# Keep mac entitlements for electron-app in git
+!apps/electron-app/build/entitlements.mac.plist
 
 # Package manager lockfiles (keep pnpm-lock.yaml)
 package-lock.json
