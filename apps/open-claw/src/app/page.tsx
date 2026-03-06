@@ -172,9 +172,9 @@ export default function Page() {
   );
 
   return (
-    <div className="px-8 py-8 max-w-lg">
+    <div className="w-full min-h-full flex-1 flex flex-col px-6 py-6 sm:px-8 sm:py-8">
       {/* ── Header ── */}
-      <div className="mb-7">
+      <div className="shrink-0 mb-7">
         <div className="flex items-center justify-between mb-1.5">
           <h1 className="text-[22px] font-bold tracking-tight text-foreground">环境配置</h1>
           <button
@@ -206,7 +206,7 @@ export default function Page() {
       )}
 
       {/* ── Tool cards ── */}
-      <div className="space-y-3 mb-5">
+      <div className="shrink-0 space-y-3 mb-5">
         {TOOLS.map(({ id, label, emoji, description }) => {
           const tool = tools[id];
           const isChecking = tool.status === 'checking';
@@ -324,7 +324,7 @@ export default function Page() {
 
       {/* ── Terminal log panel ── */}
       {logs.length > 0 && (
-        <div>
+        <div className="flex-1 flex flex-col min-h-0">
           <button
             onClick={() => setShowLogs((v) => !v)}
             className="flex items-center gap-2 w-full px-1 py-1 mb-2
@@ -341,10 +341,10 @@ export default function Page() {
           </button>
 
           {showLogs && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 dark:bg-black overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-zinc-800 bg-zinc-950 dark:bg-black overflow-hidden">
               {/* Fake title bar */}
               <div
-                className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900/70
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-zinc-900/70
                   border-b border-zinc-800/80"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
@@ -362,7 +362,7 @@ export default function Page() {
               </div>
 
               {/* Log entries */}
-              <div className="p-3 h-48 overflow-y-auto font-mono text-[12px] leading-relaxed space-y-px">
+              <div className="flex-1 min-h-48 p-3 overflow-y-auto font-mono text-[12px] leading-relaxed space-y-px">
                 {logs.map((log, i) => (
                   <div key={i} className={`whitespace-pre-wrap break-all ${LOG_COLORS[log.type]}`}>
                     {log.message}
