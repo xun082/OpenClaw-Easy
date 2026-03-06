@@ -1,10 +1,10 @@
 {
   "name": "monorepo",
   "version": "0.0.1",
-  "description": "Monorepo with Electron and React applications",
+  "description": "OpenClaw-Easy：包含 Electron 桌面端与 Web 前端的多包仓库，用于一站式构建与发布",
   "private": true,
   "packageManager": "pnpm@10.26.1",
-  "author": "example.com",
+  "author": "Moment",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

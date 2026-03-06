@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -53,13 +52,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Get package version
+      - name: Get tag version
         id: version
         shell: bash
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          TAG="$GITHUB_REF_NAME"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "version=$TAG" >> $GITHUB_OUTPUT
 
       - name: Build application
         run: pnpm run build
