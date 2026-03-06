@@ -1,0 +1,48 @@
+{
+  "name": "monorepo",
+  "version": "0.0.1",
+  "description": "Monorepo with Electron and React applications",
+  "private": true,
+  "packageManager": "pnpm@10.26.1",
+  "author": "example.com",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "eslint --cache . --fix",
+    "lint:ci": "eslint --cache .",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "format": "prettier --write .",
+    "format:ci": "prettier --check .",
+    "electron:dev": "turbo run dev --filter=@monorepo/react-app --filter=my-electron-app",
+    "electron:build": "turbo run build --filter=@monorepo/react-app --filter=my-electron-app",
+    "build:electron": "pnpm --filter my-electron-app build:win && pnpm --filter my-electron-app build:mac",
+    "build:electron:win": "pnpm --filter my-electron-app build:win",
+    "build:electron:mac": "pnpm --filter my-electron-app build:mac",
+    "build:electron:mac-intel": "pnpm --filter my-electron-app build:mac-intel",
+    "build:electron:mac-arm": "pnpm --filter my-electron-app build:mac-arm",
+    "react:dev": "turbo run dev --filter=@monorepo/react-app",
+    "react:build": "turbo run build --filter=@monorepo/react-app",
+    "download-ytdlp": "./scripts/download-ytdlp.sh"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "esbuild", "electron-winstaller"]
+  },
+  "devDependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^10.0.2",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "turbo": "^2.8.13",
+    "typescript": "^5.9.3"
+  }
+}

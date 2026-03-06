@@ -1,0 +1,96 @@
+name: Build macOS ARM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build macOS ARM (arm64) App
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Configure Git
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git config --global url."https://".insteadOf git://
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: macos-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            macos-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Get package version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Build Electron app
+        run: pnpm run build:electron:mac-arm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-app-macos-arm64-${{ steps.version.outputs.version }}
+          path: |
+            apps/electron-app/dist/*-arm64.dmg
+            apps/electron-app/dist/*-arm64.dmg.blockmap
+            apps/electron-app/dist/*.yml
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 6
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/electron-app/dist/*-arm64.dmg
+            apps/electron-app/dist/*-arm64.dmg.blockmap
+            apps/electron-app/dist/*.yml
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

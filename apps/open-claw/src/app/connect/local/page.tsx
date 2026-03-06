@@ -1,0 +1,254 @@
+'use client';
+
+import { useState, useCallback, useRef } from 'react';
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Copy,
+  CheckCheck,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
+  Plug,
+} from 'lucide-react';
+
+type ConnStatus = 'idle' | 'connecting' | 'connected' | 'failed' | 'timeout';
+
+interface TestResult {
+  ok: boolean;
+  latencyMs: number;
+  method: 'ws' | 'http' | 'cli';
+  error?: string;
+  rawOutput?: string;
+}
+
+async function probeGateway(url: string, token: string): Promise<TestResult> {
+  const t0 = Date.now();
+
+  // Normalize: support both ws:// and http://
+  const httpUrl = url.replace(/^wss?:\/\//, (m) => (m === 'wss://' ? 'https://' : 'http://'));
+  const isLocal =
+    url.includes('127.0.0.1') || url.includes('localhost') || url.includes('0.0.0.0');
+
+  // Local: try CLI first
+  if (isLocal && typeof window !== 'undefined' && typeof window.api?.executeCommand === 'function') {
+    try {
+      const wsUrl = url.startsWith('ws') ? url : `ws://${url}`;
+      const cmd = token
+        ? `openclaw gateway status --url ${wsUrl} --token ${token}`
+        : `openclaw gateway status --url ${wsUrl}`;
+      const res = await window.api.executeCommand(cmd);
+      const out = (res.output ?? '').trim();
+      const latencyMs = Date.now() - t0;
+      if (res.success || out.toLowerCase().includes('running') || out.toLowerCase().includes('ok')) {
+        return { ok: true, latencyMs, method: 'cli', rawOutput: out };
+      }
+      if (out.length > 0) {
+        return { ok: false, latencyMs, method: 'cli', error: '网关未运行', rawOutput: out };
+      }
+    } catch {
+      /* openclaw not installed */
+    }
+  }
+
+  // HTTP probe
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(httpUrl, { method: 'GET', signal: controller.signal, headers });
+    clearTimeout(timer);
+    const latencyMs = Date.now() - t0;
+
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, latencyMs, method: 'http', error: '认证失败，Token 不正确' };
+    }
+    return { ok: true, latencyMs, method: 'http' };
+  } catch (e: unknown) {
+    const latencyMs = Date.now() - t0;
+    if (e instanceof Error && e.name === 'AbortError') {
+      return { ok: false, latencyMs, method: 'http', error: '连接超时（8s），请确认地址可达' };
+    }
+    const msg = e instanceof Error ? e.message : '';
+    if (msg.includes('ECONNREFUSED') || msg.includes('Failed to fetch') || msg.includes('ERR_CONNECTION_REFUSED')) {
+      return { ok: false, latencyMs, method: 'http', error: '连接被拒绝，Gateway 未运行或端口未开放' };
+    }
+    return { ok: false, latencyMs, method: 'http', error: '无法连接：' + (msg || '未知错误') };
+  }
+}
+
+export default function ConnectTestPage() {
+  const [gatewayUrl, setGatewayUrl] = useState('ws://127.0.0.1:18789');
+  const [token, setToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [status, setStatus] = useState<ConnStatus>('idle');
+  const [result, setResult] = useState<TestResult | null>(null);
+  const [showOutput, setShowOutput] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
+  const probing = useRef(false);
+
+  const handleTest = useCallback(async () => {
+    if (probing.current) return;
+    probing.current = true;
+    setStatus('connecting');
+    setResult(null);
+    setShowOutput(false);
+
+    const url = gatewayUrl.trim() || 'ws://127.0.0.1:18789';
+    const res = await probeGateway(url, token.trim());
+    probing.current = false;
+    setStatus(res.ok ? 'connected' : res.error?.includes('超时') ? 'timeout' : 'failed');
+    setResult(res);
+  }, [gatewayUrl, token]);
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(gatewayUrl).catch(() => {});
+    setUrlCopied(true);
+    setTimeout(() => setUrlCopied(false), 2000);
+  };
+
+  const statusConfig = {
+    idle: { color: 'text-muted-foreground', bg: 'bg-muted/30 border-border', label: '未测试' },
+    connecting: { color: 'text-sky-500', bg: 'bg-sky-500/10 border-sky-500/30', label: '连接中...' },
+    connected: { color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/30', label: '连接成功' },
+    failed: { color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/30', label: '连接失败' },
+    timeout: { color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/30', label: '连接超时' },
+  }[status];
+
+  return (
+    <div className="px-8 py-8 space-y-6">
+      <div>
+        <h2 className="text-[22px] font-bold tracking-tight text-foreground mb-1.5">连接测试</h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          测试本地或远端 OpenClaw Gateway 是否可达。
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        {/* URL */}
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+            Gateway URL
+          </label>
+          <input
+            type="text"
+            value={gatewayUrl}
+            onChange={(e) => setGatewayUrl(e.target.value)}
+            placeholder="ws://127.0.0.1:18789"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-muted/30 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </div>
+
+        {/* Token */}
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+            Auth Token（可选）
+          </label>
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="留空表示无鉴权"
+              className="w-full pl-3 pr-10 py-2 rounded-lg border border-border bg-muted/30 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+            <button
+              onClick={() => setShowToken((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Actions row */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCopyUrl}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-background text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {urlCopied ? (
+              <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+            复制 URL
+          </button>
+
+          <div className="flex-1" />
+
+          <button
+            onClick={handleTest}
+            disabled={status === 'connecting'}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {status === 'connecting' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plug className="w-4 h-4" />
+            )}
+            测试连接
+          </button>
+
+          <button
+            onClick={handleTest}
+            disabled={status === 'connecting'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-background text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${status === 'connecting' ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Result */}
+      {result && (
+        <div className={`rounded-xl border px-5 py-4 space-y-3 ${statusConfig.bg}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {result.ok ? (
+                <CheckCircle2 className={`w-4 h-4 ${statusConfig.color}`} />
+              ) : (
+                <XCircle className={`w-4 h-4 ${statusConfig.color}`} />
+              )}
+              <span className={`text-sm font-medium ${statusConfig.color}`}>
+                {statusConfig.label}
+              </span>
+              {result.latencyMs > 0 && (
+                <span className="text-xs text-muted-foreground font-mono">{result.latencyMs}ms</span>
+              )}
+            </div>
+            <span className="text-xs font-mono text-muted-foreground/60 uppercase">
+              via {result.method}
+            </span>
+          </div>
+
+          {result.error && <p className="text-sm text-muted-foreground">{result.error}</p>}
+
+          {result.rawOutput && (
+            <div>
+              <button
+                onClick={() => setShowOutput((v) => !v)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Terminal className="w-3 h-3" />
+                原始输出
+                {showOutput ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+              {showOutput && (
+                <pre className="mt-2 p-3 rounded-lg bg-zinc-950 font-mono text-xs text-zinc-300 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                  {result.rawOutput}
+                </pre>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": ["rspack.config.*", "src/main/**/*", "src/preload/**/*"],
+  "compilerOptions": {
+    "composite": true
+  }
+}
