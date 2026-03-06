@@ -63,13 +63,25 @@ jobs:
       - name: Build application
         run: pnpm run build
 
+      - name: Pre-download dmg-builder binary
+        shell: bash
+        run: |
+          ARCH=$(uname -m | sed 's/x86_64/x86_64/')
+          FILE="dmgbuild-bundle-${ARCH}-75c8a6c.tar.gz"
+          DEST="/tmp/dmgbuild-vendor"
+          mkdir -p "$DEST"
+          curl -fL "https://github.com/electron-userland/electron-builder-binaries/releases/download/dmg-builder%401.2.0/${FILE}" \
+            -o "/tmp/${FILE}"
+          tar -xzf "/tmp/${FILE}" -C "$DEST" --strip-components=1
+          chmod +x "$DEST/dmgbuild"
+          echo "CUSTOM_DMGBUILD_PATH=$DEST/dmgbuild" >> "$GITHUB_ENV"
+
       - name: Build Electron app
         run: pnpm run build:electron:mac-arm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+          CUSTOM_DMGBUILD_PATH: ${{ env.CUSTOM_DMGBUILD_PATH }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
