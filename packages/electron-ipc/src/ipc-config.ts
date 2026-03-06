@@ -388,6 +388,8 @@ export class IpcConfig {
         const target = `gui/${uid}/${serviceLabel}`;
         const plistPath = join(homedir(), 'Library', 'LaunchAgents', `${serviceLabel}.plist`);
 
+        const env = this.getSystemEnv();
+
         // 1. Try kickstart (service already registered with launchd)
         try {
           const { stdout, stderr } = await execAsync(`/bin/launchctl kickstart -k ${target}`, {
@@ -398,10 +400,24 @@ export class IpcConfig {
 
           return { success: true, output: out || '网关已重启' };
         } catch (e1: any) {
-          console.log('kickstart failed, trying bootstrap:', e1.message);
+          console.log('kickstart failed:', e1.message);
         }
 
-        // 2. Try bootstrap via plist (registers the service first, then starts it)
+        // 2. If plist is missing, run `openclaw gateway install` to create it
+        if (!existsSync(plistPath)) {
+          console.log('plist not found, running openclaw gateway install…');
+          try {
+            const { stdout, stderr } = await execAsync(
+              '/bin/zsh -l -c "openclaw gateway install"',
+              { env, timeout: 20000 },
+            );
+            console.log('gateway install:', (stdout || stderr || '').trim());
+          } catch (installErr: any) {
+            console.log('gateway install failed:', installErr.message);
+          }
+        }
+
+        // 3. Bootstrap via plist (registers + starts the service)
         if (existsSync(plistPath)) {
           try {
             // bootout is best-effort (ignore if not loaded)
@@ -425,11 +441,11 @@ export class IpcConfig {
           }
         }
 
-        // 3. Last resort: run via user login shell so PATH / nvm / brew are loaded
+        // 4. Last resort: run via user login shell so PATH / nvm / brew are loaded
         try {
           const { stdout, stderr } = await execAsync(
             '/bin/zsh -l -c "openclaw gateway start > /tmp/openclaw-gateway.log 2>&1 &"',
-            { timeout: 10000 },
+            { env, timeout: 10000 },
           );
           const out = (stdout || stderr || '').trim();
 

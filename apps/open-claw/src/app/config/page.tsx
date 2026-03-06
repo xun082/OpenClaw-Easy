@@ -21,6 +21,7 @@ import {
   X,
   Monitor,
   Server,
+  ExternalLink,
 } from 'lucide-react';
 
 import {
@@ -36,7 +37,7 @@ import {
   normalizeConfig,
   EMPTY_CONFIG,
 } from '@/store/config-store';
-import type { OpenclawConfig } from '@/store/config-store';
+import type { OpenclawConfig, AgentModelConfig } from '@/store/config-store';
 import { useConnectionStore, selectActiveConn } from '@/store/connection-store';
 import { buildSshCmd } from '@/lib/ssh-utils';
 import type { SSHConn } from '@/lib/ssh-utils';
@@ -68,6 +69,8 @@ export default function ConfigPage() {
   const [showGatewayPassword, setShowGatewayPassword] = useState(false);
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [customProviderName, setCustomProviderName] = useState('');
+  const [newAgentModelKey, setNewAgentModelKey] = useState('');
+  const [newAgentModelAlias, setNewAgentModelAlias] = useState('');
 
   // ── Store ──────────────────────────────────────────────────────────────────
   const {
@@ -85,6 +88,7 @@ export default function ConfigPage() {
     initWithEmpty,
     // Mutation helpers
     setGatewayPort,
+    setGatewayAuthMode,
     setGatewayAuthToken,
     setGatewayAuthPassword,
     setGatewayReloadMode,
@@ -97,6 +101,10 @@ export default function ConfigPage() {
     setAgentWorkspace,
     setContextPruningMode,
     setAgentDefaultModel,
+    addAgentModelEntry,
+    updateAgentModelEntry,
+    removeAgentModelEntry,
+    setWaGroupPolicy,
     setWaAllowFrom,
     setWaRequireMention,
     setMentionPatterns,
@@ -450,6 +458,22 @@ export default function ConfigPage() {
             <SectionHeader
               title="Gateway 网关"
               description="Gateway 服务的端口、认证令牌和热重载策略"
+              action={
+                <button
+                  onClick={() => {
+                    const port = gw?.port ?? 18789;
+                    const token = gw?.auth?.token ?? '';
+                    const url = token
+                      ? `http://127.0.0.1:${port}/?token=${encodeURIComponent(token)}`
+                      : `http://127.0.0.1:${port}/`;
+                    window.open(url, '_blank');
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors px-2.5 py-1 rounded-lg hover:bg-primary/10 font-medium"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  打开 Dashboard
+                </button>
+              }
             />
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -481,58 +505,83 @@ export default function ConfigPage() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>认证令牌 (auth.token)</label>
-                  <div className="relative">
-                    <input
-                      type={showGatewayToken ? 'text' : 'password'}
-                      value={gw?.auth?.token ?? ''}
-                      onChange={(e) => setGatewayAuthToken(e.target.value)}
-                      placeholder="向导自动生成或手动填写"
-                      className={`${inputCls} pr-9`}
-                    />
-                    <button
-                      onClick={() => setShowGatewayToken((p) => !p)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-                    >
-                      {showGatewayToken ? (
-                        <EyeOff className="w-3.5 h-3.5" />
-                      ) : (
-                        <Eye className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/70 mt-1">
-                    或设置 OPENCLAW_GATEWAY_TOKEN 环境变量
-                  </p>
-                </div>
-                <div>
-                  <label className={labelCls}>认证密码 (auth.password)</label>
-                  <div className="relative">
-                    <input
-                      type={showGatewayPassword ? 'text' : 'password'}
-                      value={gw?.auth?.password ?? ''}
-                      onChange={(e) => setGatewayAuthPassword(e.target.value)}
-                      placeholder="与 token 二选一"
-                      className={`${inputCls} pr-9`}
-                    />
-                    <button
-                      onClick={() => setShowGatewayPassword((p) => !p)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-                    >
-                      {showGatewayPassword ? (
-                        <EyeOff className="w-3.5 h-3.5" />
-                      ) : (
-                        <Eye className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/70 mt-1">
-                    客户端 connect.params.auth.password 中携带
-                  </p>
-                </div>
+              <div>
+                <label className={labelCls}>认证模式 (auth.mode)</label>
+                <SegmentedControl
+                  value={gw?.auth?.mode ?? 'none'}
+                  options={[
+                    { value: 'none', label: '无认证' },
+                    { value: 'token', label: 'Token' },
+                    { value: 'password', label: 'Password' },
+                    { value: 'trusted-proxy', label: 'Trusted Proxy' },
+                  ]}
+                  onChange={(v) => {
+                    type AuthMode = 'none' | 'token' | 'password' | 'trusted-proxy';
+                    setGatewayAuthMode(v as AuthMode);
+                  }}
+                />
+                <p className="text-[10px] text-muted-foreground/70 mt-1">
+                  本地使用推荐「无认证」；对外暴露时选 Token 或 Password
+                </p>
               </div>
+              {(gw?.auth?.mode === 'token' || gw?.auth?.mode === 'password') && (
+                <div className="grid grid-cols-2 gap-3">
+                  {gw?.auth?.mode === 'token' && (
+                    <div>
+                      <label className={labelCls}>认证令牌 (auth.token)</label>
+                      <div className="relative">
+                        <input
+                          type={showGatewayToken ? 'text' : 'password'}
+                          value={gw?.auth?.token ?? ''}
+                          onChange={(e) => setGatewayAuthToken(e.target.value)}
+                          placeholder="向导自动生成或手动填写"
+                          className={`${inputCls} pr-9`}
+                        />
+                        <button
+                          onClick={() => setShowGatewayToken((p) => !p)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                        >
+                          {showGatewayToken ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        或设置 OPENCLAW_GATEWAY_TOKEN 环境变量
+                      </p>
+                    </div>
+                  )}
+                  {gw?.auth?.mode === 'password' && (
+                    <div>
+                      <label className={labelCls}>认证密码 (auth.password)</label>
+                      <div className="relative">
+                        <input
+                          type={showGatewayPassword ? 'text' : 'password'}
+                          value={gw?.auth?.password ?? ''}
+                          onChange={(e) => setGatewayAuthPassword(e.target.value)}
+                          placeholder="客户端连接时携带"
+                          className={`${inputCls} pr-9`}
+                        />
+                        <button
+                          onClick={() => setShowGatewayPassword((p) => !p)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                        >
+                          {showGatewayPassword ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        客户端 connect.params.auth.password 中携带
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
@@ -844,6 +893,90 @@ export default function ConfigPage() {
                   onChange={setAgentDefaultModel}
                 />
               </div>
+
+              {/* ── Agent model aliases ── */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={labelCls + ' mb-0'}>模型别名 (models)</label>
+                  <p className="text-[10px] text-muted-foreground/60">
+                    为 provider/modelId 设置别名，Kimi Coding 必填
+                  </p>
+                </div>
+                {Object.entries(config?.agents?.defaults?.models ?? {}).length > 0 && (
+                  <div className="space-y-2 mb-2">
+                    {Object.entries(config?.agents?.defaults?.models ?? {}).map(
+                      ([key, cfg]: [string, AgentModelConfig]) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span
+                            className={`${inputCls} flex-1 font-mono bg-muted/30 text-muted-foreground cursor-default select-all`}
+                          >
+                            {key}
+                          </span>
+                          <span className="text-muted-foreground text-sm select-none shrink-0">
+                            →
+                          </span>
+                          <input
+                            value={cfg.alias ?? ''}
+                            onChange={(e) => updateAgentModelEntry(key, { alias: e.target.value })}
+                            placeholder="别名（如 Kimi K2.5）"
+                            className={`${inputCls} flex-1`}
+                          />
+                          <button
+                            onClick={() => removeAgentModelEntry(key)}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    value={newAgentModelKey}
+                    onChange={(e) => setNewAgentModelKey(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newAgentModelKey.trim()) {
+                        addAgentModelEntry(newAgentModelKey.trim(), newAgentModelAlias.trim());
+                        setNewAgentModelKey('');
+                        setNewAgentModelAlias('');
+                      }
+                    }}
+                    placeholder="provider/modelId（如 kimi-coding/k2p5）"
+                    className={`${inputCls} flex-1 font-mono text-xs`}
+                  />
+                  <input
+                    value={newAgentModelAlias}
+                    onChange={(e) => setNewAgentModelAlias(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newAgentModelKey.trim()) {
+                        addAgentModelEntry(newAgentModelKey.trim(), newAgentModelAlias.trim());
+                        setNewAgentModelKey('');
+                        setNewAgentModelAlias('');
+                      }
+                    }}
+                    placeholder="别名（如 Kimi K2.5）"
+                    className={`${inputCls} w-40`}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!newAgentModelKey.trim()) return;
+                      addAgentModelEntry(newAgentModelKey.trim(), newAgentModelAlias.trim());
+                      setNewAgentModelKey('');
+                      setNewAgentModelAlias('');
+                    }}
+                    disabled={!newAgentModelKey.trim()}
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition disabled:opacity-40 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  Kimi Coding 须在下方「环境变量」里设置 KIMI_API_KEY，不要添加到提供商列表。key =
+                  kimi-coding/k2p5，别名 = Kimi K2.5
+                </p>
+              </div>
             </div>
           </section>
 
@@ -855,6 +988,20 @@ export default function ConfigPage() {
             />
             <div className="space-y-3">
               <div>
+                <label className={labelCls}>群组策略 (groupPolicy)</label>
+                <SegmentedControl
+                  value={config?.channels?.whatsapp?.groupPolicy ?? 'open'}
+                  options={[
+                    { value: 'open', label: '开放（open）' },
+                    { value: 'allowlist', label: '白名单（allowlist）' },
+                  ]}
+                  onChange={(v) => setWaGroupPolicy(v as 'open' | 'allowlist')}
+                />
+                <p className="text-[10px] text-muted-foreground/70 mt-1">
+                  open：允许所有群组消息；allowlist：仅允许 allowFrom 白名单中的号码
+                </p>
+              </div>
+              <div>
                 <label className={labelCls}>允许的号码白名单 (allowFrom)</label>
                 <TagInput
                   values={config?.channels?.whatsapp?.allowFrom ?? []}
@@ -862,7 +1009,7 @@ export default function ConfigPage() {
                   placeholder="+8613800138000，按 Enter 添加，留空允许所有来源"
                 />
                 <p className="text-[10px] text-muted-foreground/70 mt-1">
-                  填写国际格式号码；留空列表表示允许所有来源
+                  填写国际格式号码；仅在群组策略为「白名单」时生效
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-card p-4">

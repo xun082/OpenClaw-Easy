@@ -3,14 +3,26 @@ import { create } from 'zustand';
 import { LEGACY_API_MAP, PROVIDER_MODELS, resolveModelListKey } from '@/lib/openclaw-providers';
 import type { ProviderConfig, OpenclawModelEntry } from '@/lib/openclaw-providers';
 
+// ─── Per-model alias / capability override (agents.defaults.models) ───────────
+
+export interface AgentModelConfig {
+  alias?: string;
+  [key: string]: unknown;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OpenclawConfig {
   meta?: Record<string, unknown>;
   env?: Record<string, string>;
   gateway?: {
+    mode?: 'local' | 'remote';
     port?: number;
-    auth?: { token?: string; password?: string };
+    auth?: {
+      mode?: 'none' | 'token' | 'password' | 'trusted-proxy';
+      token?: string;
+      password?: string;
+    };
     reload?: { mode?: 'hybrid' | 'off' };
   };
   canvasHost?: {
@@ -26,10 +38,13 @@ export interface OpenclawConfig {
       workspace?: string;
       contextPruning?: { mode?: 'cache-ttl' | 'off' };
       model?: { primary?: string };
+      /** Per-model alias / capability overrides, keyed by "provider/modelId". */
+      models?: Record<string, AgentModelConfig>;
     };
   };
   channels?: {
     whatsapp?: {
+      groupPolicy?: 'open' | 'allowlist';
       allowFrom?: string[];
       groups?: Record<string, { requireMention?: boolean }>;
     };
@@ -54,8 +69,9 @@ export const EMPTY_CONFIG: OpenclawConfig = {
   meta: {},
   env: {},
   gateway: {
+    mode: 'local',
     port: 18789,
-    auth: { token: '' },
+    auth: { mode: 'none' },
     reload: { mode: 'hybrid' },
   },
   canvasHost: { enabled: true, port: 18793 },
@@ -68,6 +84,7 @@ export const EMPTY_CONFIG: OpenclawConfig = {
   },
   channels: {
     whatsapp: {
+      groupPolicy: 'open',
       allowFrom: [],
       groups: { '*': { requireMention: true } },
     },
@@ -80,6 +97,19 @@ export const EMPTY_CONFIG: OpenclawConfig = {
 // ─── Config normalization ────────────────────────────────────────────────────
 
 export function normalizeConfig(cfg: OpenclawConfig): OpenclawConfig {
+  // Ensure gateway.mode is always set — required field since openclaw 2026.3.x
+  if (!cfg.gateway?.mode) {
+    cfg = { ...cfg, gateway: { mode: 'local', ...cfg.gateway } };
+  }
+
+  // Ensure auth.mode is always set — prevents gateway from auto-generating a token
+  if (!cfg.gateway?.auth?.mode) {
+    cfg = {
+      ...cfg,
+      gateway: { ...cfg.gateway, auth: { mode: 'none', ...cfg.gateway?.auth } },
+    };
+  }
+
   if (!cfg.models?.providers) return cfg;
 
   const providers: Record<string, ProviderConfig> = {};
@@ -160,6 +190,7 @@ interface ConfigStore {
 
   // Gateway
   setGatewayPort: (port: number) => void;
+  setGatewayAuthMode: (mode: 'none' | 'token' | 'password' | 'trusted-proxy') => void;
   setGatewayAuthToken: (token: string) => void;
   setGatewayAuthPassword: (password: string) => void;
   setGatewayReloadMode: (mode: 'hybrid' | 'off') => void;
@@ -179,7 +210,13 @@ interface ConfigStore {
   setContextPruningMode: (mode: 'cache-ttl' | 'off') => void;
   setAgentDefaultModel: (primary: string) => void;
 
+  // Agent model aliases
+  addAgentModelEntry: (key: string, alias: string) => void;
+  updateAgentModelEntry: (key: string, patch: Partial<AgentModelConfig>) => void;
+  removeAgentModelEntry: (key: string) => void;
+
   // Channels / Messages
+  setWaGroupPolicy: (groupPolicy: 'open' | 'allowlist') => void;
   setWaAllowFrom: (allowFrom: string[]) => void;
   setWaRequireMention: (requireMention: boolean) => void;
   setMentionPatterns: (patterns: string[]) => void;
@@ -304,6 +341,12 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   setGatewayPort: (port) => get().mutate((p) => ({ ...p, gateway: { ...p.gateway, port } })),
 
+  setGatewayAuthMode: (mode) =>
+    get().mutate((p) => ({
+      ...p,
+      gateway: { ...p.gateway, auth: { ...p.gateway?.auth, mode } },
+    })),
+
   setGatewayAuthToken: (token) =>
     get().mutate((p) => ({
       ...p,
@@ -382,6 +425,53 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
       return { ...p, agents: { ...p.agents, defaults } };
     }),
+
+  addAgentModelEntry: (key, alias) =>
+    get().mutate((p) => ({
+      ...p,
+      agents: {
+        ...p.agents,
+        defaults: {
+          ...p.agents?.defaults,
+          models: { ...p.agents?.defaults?.models, [key]: { alias } },
+        },
+      },
+    })),
+
+  updateAgentModelEntry: (key, patch) =>
+    get().mutate((p) => ({
+      ...p,
+      agents: {
+        ...p.agents,
+        defaults: {
+          ...p.agents?.defaults,
+          models: {
+            ...p.agents?.defaults?.models,
+            [key]: { ...(p.agents?.defaults?.models?.[key] ?? {}), ...patch },
+          },
+        },
+      },
+    })),
+
+  removeAgentModelEntry: (key) =>
+    get().mutate((p) => {
+      const models = { ...p.agents?.defaults?.models };
+      delete models[key];
+
+      return {
+        ...p,
+        agents: {
+          ...p.agents,
+          defaults: { ...p.agents?.defaults, models },
+        },
+      };
+    }),
+
+  setWaGroupPolicy: (groupPolicy) =>
+    get().mutate((p) => ({
+      ...p,
+      channels: { ...p.channels, whatsapp: { ...p.channels?.whatsapp, groupPolicy } },
+    })),
 
   setWaAllowFrom: (allowFrom) =>
     get().mutate((p) => ({

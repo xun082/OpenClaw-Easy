@@ -66,6 +66,7 @@ export const LEGACY_API_MAP: Record<string, string> = {
 };
 
 // ── Kimi K2 full model definitions (shared by kimi-cn and moonshot presets) ──
+// These IDs match the Moonshot public API (api.moonshot.cn / api.moonshot.ai).
 
 const KIMI_K2_MODELS: OpenclawModelEntry[] = [
   {
@@ -108,6 +109,30 @@ const KIMI_K2_MODELS: OpenclawModelEntry[] = [
     id: 'kimi-k2-thinking-turbo',
     name: 'Kimi K2 Thinking Turbo',
     reasoning: true,
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 256000,
+    maxTokens: 8192,
+  },
+];
+
+// ── Kimi Coding subscription API model definitions (api.kimi.com/coding/v1) ──
+// The coding endpoint uses short IDs (k2p5, k2) — different from the public API.
+
+const KIMI_CODE_MODELS: OpenclawModelEntry[] = [
+  {
+    id: 'k2p5',
+    name: 'Kimi K2.5',
+    reasoning: false,
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 256000,
+    maxTokens: 8192,
+  },
+  {
+    id: 'k2',
+    name: 'Kimi K2',
+    reasoning: false,
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 256000,
@@ -169,7 +194,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     color: '#EC4899',
   },
   {
-    id: 'kimi-code',
+    id: 'kimi-coding',
     name: 'Kimi Code',
     description: 'Kimi 编码专用 — 订阅制',
     api: 'openai-completions',
@@ -177,7 +202,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     authHeader: true,
     keyPlaceholder: 'sk-kimi-...',
     color: '#06B6D4',
-    fullModels: KIMI_K2_MODELS,
+    fullModels: KIMI_CODE_MODELS,
   },
   {
     id: 'kimi-cn',
@@ -355,12 +380,9 @@ export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
     { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking', desc: '推理增强' },
     { id: 'kimi-k2-thinking-turbo', name: 'Kimi K2 Thinking Turbo' },
   ],
-  'kimi-code': [
-    { id: 'kimi-k2.5', name: 'Kimi K2.5', desc: '旗舰推荐' },
-    { id: 'kimi-k2-0905-preview', name: 'Kimi K2 0905 Preview' },
-    { id: 'kimi-k2-turbo-preview', name: 'Kimi K2 Turbo', desc: '快速' },
-    { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking', desc: '推理增强' },
-    { id: 'kimi-k2-thinking-turbo', name: 'Kimi K2 Thinking Turbo' },
+  'kimi-coding': [
+    { id: 'k2p5', name: 'Kimi K2.5', desc: '旗舰推荐（订阅制）' },
+    { id: 'k2', name: 'Kimi K2', desc: '标准版（订阅制）' },
   ],
   qwen: [
     { id: 'qwen-max', name: 'Qwen Max', desc: '旗舰' },
@@ -435,7 +457,7 @@ export function resolveModelListKey(providerKey: string, providerConfig: Provide
   const u = (providerConfig.baseUrl ?? '').toLowerCase();
 
   if (u.includes('deepseek.com')) return 'deepseek';
-  if (u.includes('api.kimi.com')) return 'kimi-code';
+  if (u.includes('api.kimi.com')) return 'kimi-coding';
   if (u.includes('moonshot.cn') || u.includes('moonshot.ai')) return 'moonshot';
   if (u.includes('bigmodel.cn')) return 'glm';
   if (u.includes('minimaxi.com')) return 'minimax-coding';

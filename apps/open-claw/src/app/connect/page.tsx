@@ -312,6 +312,93 @@ export default function InstallPage() {
 
       if (res.success) {
         await checkOpenclaw();
+
+        // ── Step A: create default config if missing ──────────────────────────
+        pushLog({ type: 'info', message: '正在检查配置文件…' });
+
+        try {
+          const check = await window.api.checkOpenclawConfigExists();
+
+          if (!check.exists) {
+            const defaultConfig = JSON.stringify(
+              {
+                gateway: { mode: 'local', port: 18789, reload: { mode: 'hybrid' } },
+                canvasHost: { enabled: true, port: 18793 },
+                models: { mode: 'merge', providers: {} },
+                agents: { defaults: { workspace: '', contextPruning: { mode: 'off' } } },
+                channels: {
+                  whatsapp: {
+                    groupPolicy: 'open',
+                    allowFrom: [],
+                    groups: { '*': { requireMention: true } },
+                  },
+                },
+                messages: { groupChat: { mentionPatterns: ['@openclaw'] } },
+                env: {},
+              },
+              null,
+              2,
+            );
+            const write = await window.api.writeOpenclawConfig(defaultConfig);
+
+            if (write.success) {
+              pushLog({ type: 'info', message: '✓ 默认配置文件已创建' });
+            } else {
+              pushLog({ type: 'stderr', message: `写入配置失败：${write.error ?? ''}` });
+            }
+          } else {
+            pushLog({ type: 'info', message: '✓ 配置文件已存在，跳过初始化' });
+          }
+        } catch (initErr: unknown) {
+          pushLog({
+            type: 'stderr',
+            message: `配置初始化跳过：${initErr instanceof Error ? initErr.message : String(initErr)}`,
+          });
+        }
+
+        // ── Step B: install gateway LaunchAgent (idempotent) ──────────────────
+        pushLog({ type: 'info', message: '正在注册 Gateway 服务…' });
+
+        try {
+          const installRes = await window.api.executeCommand(
+            '/bin/zsh -l -c "openclaw gateway install 2>&1"',
+          );
+          const installOut = (installRes.output ?? '').trim();
+
+          if (installOut) pushLog({ type: 'stdout', message: installOut });
+          pushLog({
+            type: 'info',
+            message: installRes.success
+              ? '✓ Gateway 服务已注册'
+              : '⚠ gateway install 返回非零，将尝试直接启动',
+          });
+        } catch (installErr: unknown) {
+          pushLog({
+            type: 'stderr',
+            message: `gateway install 跳过：${installErr instanceof Error ? installErr.message : String(installErr)}`,
+          });
+        }
+
+        // ── Step C: start the gateway ─────────────────────────────────────────
+        pushLog({ type: 'info', message: '正在启动 Gateway…' });
+
+        try {
+          const startRes = await window.api.restartGateway();
+          const startOut = (startRes.output ?? '').trim();
+
+          pushLog({
+            type: startRes.success ? 'info' : 'stderr',
+            message: startRes.success
+              ? `✓ ${startOut || 'Gateway 已启动'}`
+              : `⚠ ${startOut || 'Gateway 启动失败，请在配置页手动点击启动'}`,
+          });
+        } catch (startErr: unknown) {
+          pushLog({
+            type: 'stderr',
+            message: `Gateway 启动跳过：${startErr instanceof Error ? startErr.message : String(startErr)}`,
+          });
+        }
+
         router.push('/config');
       } else {
         setOpenclaw({ status: 'error', error: '安装失败，请查看日志' });
