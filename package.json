@@ -26,7 +26,11 @@
     "download-ytdlp": "./scripts/download-ytdlp.sh"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "esbuild", "electron-winstaller"]
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "electron-winstaller"
+    ]
   },
   "devDependencies": {
     "@electron-toolkit/utils": "^4.0.0",
@@ -35,7 +39,7 @@
     "@typescript-eslint/parser": "^8.56.1",
     "autoprefixer": "^10.4.27",
     "eslint": "^10.0.2",
-    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react": "^7.37.5",

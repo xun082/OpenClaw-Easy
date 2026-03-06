@@ -1,17 +1,17 @@
 import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
 import typescriptEslintParser from '@typescript-eslint/parser';
-import importPlugin from 'eslint-plugin-import';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import prettier from 'eslint-plugin-prettier';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import { resolve } from 'path';
 
 export default [
   {
     ignores: [
       'node_modules/**',
-      '.next/**',
+      '**/.next/**',
       './eslint.config.js',
       '**/dist/**',
       '**/out/**',
@@ -37,7 +37,7 @@ export default [
       react,
       'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y,
-      import: importPlugin,
+      'simple-import-sort': simpleImportSort,
       prettier,
     },
     rules: {
@@ -50,13 +50,28 @@ export default [
           endOfLine: 'auto',
         },
       ],
-      'import/order': [
+      'simple-import-sort/imports': [
         'error',
         {
-          groups: [['builtin', 'external'], 'internal', ['parent', 'sibling', 'index']],
-          'newlines-between': 'always',
+          groups: [
+            // Side effect imports.
+            ['^\\u0000'],
+            // Node built-ins first (incl node: scheme).
+            ['^node:'],
+            // Packages.
+            ['^react', '^next', '^@?\\w'],
+            // Internal aliases (adjust if you use others).
+            ['^@/'],
+            // Parent imports.
+            ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
+            // Sibling and index imports.
+            ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
+            // Styles.
+            ['^.+\\.s?css$'],
+          ],
         },
       ],
+      'simple-import-sort/exports': 'error',
       'padding-line-between-statements': [
         'error',
         { blankLine: 'always', prev: '*', next: 'return' },
@@ -92,7 +107,7 @@ export default [
       react,
       'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y,
-      import: importPlugin,
+      'simple-import-sort': simpleImportSort,
       prettier,
     },
     rules: {
@@ -103,6 +118,21 @@ export default [
           endOfLine: 'auto',
         },
       ],
+      'simple-import-sort/imports': [
+        'error',
+        {
+          groups: [
+            ['^\\u0000'],
+            ['^node:'],
+            ['^react', '^next', '^@?\\w'],
+            ['^@/'],
+            ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
+            ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
+            ['^.+\\.s?css$'],
+          ],
+        },
+      ],
+      'simple-import-sort/exports': 'error',
       '@typescript-eslint/await-thenable': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
