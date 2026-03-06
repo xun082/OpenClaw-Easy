@@ -8,55 +8,62 @@ import SkillInstallDrawer, { type InstallStatus, type ScanStep } from './SkillIn
 
 import type { InstallLogEvent } from '@/electron';
 import { getApiKey } from '@/services/deepseekService';
+import { getKimiApiKey } from '@/services/kimiService';
+
+type AiProvider = 'deepseek' | 'kimi';
+
+/** Returns { apiKey, provider } for whichever key is configured, DeepSeek preferred. */
+function getAvailableApiKey(): { apiKey: string; provider: AiProvider } | null {
+  const ds = getApiKey();
+  if (ds) return { apiKey: ds, provider: 'deepseek' };
+  const kimi = getKimiApiKey();
+  if (kimi) return { apiKey: kimi, provider: 'kimi' };
+  return null;
+}
 import type { ScanResult, ScanSSEEvent } from '@/app/api/skills/scan/route';
 
-// ── API helpers ───────────────────────────────────────────────────────────────
-
-const API_BASE = 'https://clawhub.ai/api/v1';
+// ── API helpers (all calls go through the Next.js server to avoid browser-side 429s) ──
 
 interface ListResponse {
   items: ClawHubSkill[];
   nextCursor: string | null;
 }
 
-interface SearchItem {
-  slug?: string;
-  displayName?: string;
-  summary?: string | null;
-  version?: string | null;
-  score: number;
-  updatedAt?: number;
-}
-
-interface SearchResponse {
-  results: SearchItem[];
+interface SearchResultItem {
+  slug: string;
+  displayName: string;
+  summary?: string;
+  score?: number;
 }
 
 async function fetchPage(cursor?: string): Promise<ListResponse> {
-  const params = new URLSearchParams({ sort: 'downloads', nonSuspicious: 'true' });
+  const params = new URLSearchParams({ sort: 'downloads' });
   if (cursor) params.set('cursor', cursor);
 
-  const res = await fetch(`${API_BASE}/skills?${params}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
+  const res = await fetch(`/api/skills/browse?${params}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+  }
   return res.json() as Promise<ListResponse>;
 }
 
 async function fetchSearch(q: string): Promise<ClawHubSkill[]> {
-  const params = new URLSearchParams({ q });
-  const res = await fetch(`${API_BASE}/search?${params}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const res = await fetch(`/api/skills/search?${new URLSearchParams({ q })}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+  }
 
-  const data = (await res.json()) as SearchResponse;
+  const data = (await res.json()) as { results: SearchResultItem[] };
 
   return data.results
     .filter((r) => r.slug)
     .map((r) => ({
-      slug: r.slug!,
-      displayName: r.displayName ?? r.slug!,
+      slug: r.slug,
+      displayName: r.displayName ?? r.slug,
       summary: r.summary ?? '',
-      tags: r.version ? { latest: r.version } : {},
-      // Stats are not returned by search API — show nothing (card handles 0 → hidden)
+      tags: {},
       stats: {
         downloads: 0,
         stars: 0,
@@ -65,11 +72,9 @@ async function fetchSearch(q: string): Promise<ClawHubSkill[]> {
         installsCurrent: 0,
         versions: 0,
       },
-      createdAt: r.updatedAt ?? 0,
-      updatedAt: r.updatedAt ?? 0,
-      latestVersion: r.version
-        ? { version: r.version, createdAt: r.updatedAt ?? 0, changelog: '' }
-        : null,
+      createdAt: 0,
+      updatedAt: 0,
+      latestVersion: null,
       metadata: null,
     }));
 }
@@ -82,7 +87,8 @@ interface ActiveInstall {
   status: InstallStatus;
   scanResult?: ScanResult;
   scanSteps?: ScanStep[];
-  skillPath?: string; // for delete after dangerous scan
+  scanStreamText?: string; // accumulated real-time AI analysis tokens
+  skillPath?: string;
 }
 
 // ── Security scan helper ───────────────────────────────────────────────────────
@@ -90,13 +96,15 @@ interface ActiveInstall {
 async function runSecurityScan(
   slug: string,
   apiKey: string,
+  provider: AiProvider,
   content: string | undefined,
   onSteps: (steps: ScanStep[]) => void,
+  onStream: (text: string) => void,
 ): Promise<ScanResult> {
   const res = await fetch('/api/skills/scan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ slug, apiKey, content }),
+    body: JSON.stringify({ slug, apiKey, provider, content }),
   });
 
   if (!res.ok || !res.body) {
@@ -107,6 +115,7 @@ async function runSecurityScan(
   const decoder = new TextDecoder();
   let buffer = '';
   let result: ScanResult | null = null;
+  let streamText = '';
   const steps: ScanStep[] = [];
 
   for (;;) {
@@ -114,35 +123,33 @@ async function runSecurityScan(
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
-
       const evt = JSON.parse(line.slice(6)) as ScanSSEEvent;
 
       if (evt.type === 'fetch_start') {
         steps.push({ id: 'fetch', label: '读取技能内容', done: false });
         onSteps([...steps]);
       }
-
       if (evt.type === 'fetch_done') {
-        const fetchStep = steps.find((s) => s.id === 'fetch');
-        if (fetchStep) fetchStep.done = true;
+        const s = steps.find((s) => s.id === 'fetch');
+        if (s) s.done = true;
         steps.push({ id: 'analyze', label: 'AI 安全分析', done: false });
         onSteps([...steps]);
       }
-
+      if (evt.type === 'stream') {
+        streamText += evt.token;
+        onStream(streamText);
+      }
       if (evt.type === 'result') {
         result = evt.result;
-
-        const analyzeStep = steps.find((s) => s.id === 'analyze');
-        if (analyzeStep) analyzeStep.done = true;
+        const s = steps.find((s) => s.id === 'analyze');
+        if (s) s.done = true;
         onSteps([...steps]);
       }
-
       if (evt.type === 'error') throw new Error(evt.message);
     }
   }
@@ -208,7 +215,7 @@ export default function ClawHubTab({ submittedQuery }: Props) {
   }, []);
 
   useEffect(() => {
-    setHasApiKey(Boolean(getApiKey()));
+    setHasApiKey(Boolean(getAvailableApiKey()));
 
     const electron = isElectronEnv();
     setIsElectron(electron);
@@ -394,8 +401,9 @@ export default function ClawHubTab({ submittedQuery }: Props) {
     async (slug: string) => {
       if (!isElectron || isBusy) return;
 
-      const apiKey = getApiKey();
-      if (!apiKey) return;
+      const keyInfo = getAvailableApiKey();
+      if (!keyInfo) return;
+      const { apiKey, provider } = keyInfo;
 
       // Step 1: download + install (logs stream in via onSkillInstallLog)
       setActiveInstall({ slug, logs: [], status: 'downloading' });
@@ -474,14 +482,15 @@ export default function ClawHubTab({ submittedQuery }: Props) {
       );
 
       try {
-        const scanResult = await runSecurityScan(slug, apiKey, fileContent, (steps) => {
-          setActiveInstall((prev) => (prev ? { ...prev, scanSteps: steps } : null));
-        });
+        const scanResult = await runSecurityScan(
+          slug, apiKey, provider, fileContent,
+          (steps) => setActiveInstall((prev) => (prev ? { ...prev, scanSteps: steps } : null)),
+          (text) => setActiveInstall((prev) => (prev ? { ...prev, scanStreamText: text } : null)),
+        );
 
         if (scanResult.verdict === 'safe') {
-          await refreshInstalledSlugs();
-          // Show explicit scan-passed confirmation so user knows the scan ran
-          setActiveInstall((prev) => (prev ? { ...prev, status: 'scan_safe', scanResult } : null));
+          // Keep skillPath so we can remove skill if user closes without confirming
+          setActiveInstall((prev) => (prev ? { ...prev, status: 'scan_safe', scanResult, skillPath } : null));
         } else {
           setActiveInstall((prev) =>
             prev
@@ -509,7 +518,7 @@ export default function ClawHubTab({ submittedQuery }: Props) {
     setActiveInstall(null);
   }, [refreshInstalledSlugs]);
 
-  // Delete a skill after a dangerous/warned scan result
+  // Delete a skill after a dangerous/warned scan result, or when user closes without confirming (scan_safe)
   const handleDeleteSkill = useCallback(async () => {
     const path = activeInstall?.skillPath;
 
@@ -524,6 +533,19 @@ export default function ClawHubTab({ submittedQuery }: Props) {
     await refreshInstalledSlugs();
     setActiveInstall(null);
   }, [activeInstall, refreshInstalledSlugs]);
+
+  // When user closes drawer without clicking "安装" (scan_safe), remove the skill from workspace
+  const handleCancelInstall = useCallback(async () => {
+    const path = activeInstall?.skillPath;
+    if (path) {
+      try {
+        await window.api.executeCommand(`rm -rf "${path}"`);
+      } catch {
+        // ignore
+      }
+      await refreshInstalledSlugs();
+    }
+  }, [activeInstall?.skillPath, refreshInstalledSlugs]);
 
   // ── Derived display ─────────────────────────────────────────────────────────
 
@@ -672,9 +694,11 @@ export default function ClawHubTab({ submittedQuery }: Props) {
           status={activeInstall.status}
           scanResult={activeInstall.scanResult}
           scanSteps={activeInstall.scanSteps}
+          scanStreamText={activeInstall.scanStreamText}
           onClose={() => setActiveInstall(null)}
           onConfirmInstall={handleKeepSkill}
           onDeleteSkill={handleDeleteSkill}
+          onCancelInstall={handleCancelInstall}
         />
       )}
     </>

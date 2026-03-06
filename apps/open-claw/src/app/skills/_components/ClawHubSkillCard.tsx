@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ShieldCheck,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export interface ClawHubSkill {
   slug: string;
@@ -34,6 +35,7 @@ export interface ClawHubSkill {
 
 function formatCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+
   return String(n);
 }
 
@@ -107,19 +109,15 @@ export default function ClawHubSkillCard({
 
       {/* Action buttons */}
       {isInstalled ? (
-        <div
-          title="已安装到工作区"
-          className="shrink-0 mt-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
-            text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30
-            border border-emerald-200 dark:border-emerald-800/50"
-        >
+        <span className="shrink-0 mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 px-2.5 py-1.5 rounded-lg">
           <CheckCircle2 className="w-3.5 h-3.5" />
           已安装
-        </div>
+        </span>
       ) : (
         <div className="shrink-0 mt-1 flex items-center gap-1.5">
-          {/* Direct install */}
-          <button
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => onInstall(skill.slug)}
             disabled={isInstalling || installDisabled}
             title={
@@ -129,9 +127,7 @@ export default function ClawHubSkillCard({
                   ? '处理中…'
                   : `安装 ${skill.displayName}`
             }
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border
-              text-muted-foreground hover:text-foreground hover:bg-muted hover:border-primary/30 transition-all
-              disabled:opacity-50 disabled:cursor-not-allowed"
+            className="gap-1.5 h-8 px-2.5 text-xs"
           >
             {isInstalling ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -139,26 +135,25 @@ export default function ClawHubSkillCard({
               <ArrowDownToLine className="w-3.5 h-3.5" />
             )}
             {isInstalling ? '处理中' : '安装'}
-          </button>
+          </Button>
 
-          {/* Scan + install */}
           {onScanInstall && (
-            <button
+            <Button
+              size="icon-sm"
+              variant="outline"
               onClick={() => onScanInstall(skill.slug)}
               disabled={isInstalling || installDisabled || scanDisabled}
               title={
                 scanDisabled
-                  ? '需要配置 DeepSeek API Key 才能使用安全扫描'
+                  ? '需要在「设置」中配置 DeepSeek 或 Kimi API Key 才能使用 AI 安全扫描'
                   : installDisabled
                     ? '请先登录 ClawHub'
-                    : `安全扫描后安装 ${skill.displayName}`
+                    : `AI 深度推理安全扫描后安装 ${skill.displayName}`
               }
-              className="flex items-center justify-center w-8 h-8 rounded-lg border border-border
-                text-muted-foreground hover:text-sky-500 hover:border-sky-400/50 hover:bg-sky-50/5 transition-all
-                disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-8 w-8 hover:text-sky-500 hover:border-sky-400/50"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       )}

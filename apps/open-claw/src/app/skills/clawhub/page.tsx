@@ -1,52 +1,68 @@
 'use client';
 
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import ClawHubTab from '../_components/ClawHubTab';
 
 export default function ClawHubPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
 
+  const submit = () => setSubmittedQuery(searchQuery.trim());
+  const clear = () => {
+    setSearchQuery('');
+    setSubmittedQuery('');
+  };
+
   return (
     <div className="px-8 py-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight mb-1">ClawHub</h1>
+        <h1 className="text-[22px] font-bold tracking-tight mb-1">ClawHub</h1>
         <p className="text-sm text-muted-foreground leading-relaxed">
           浏览和安装 ClawHub 技能市场上的社区技能。
         </p>
       </div>
 
-      {/* Search */}
+      {/* Search bar */}
       <div className="flex items-center gap-2 mb-5">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            type="text"
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               if (!e.target.value.trim()) setSubmittedQuery('');
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') setSubmittedQuery(searchQuery);
+              if (e.key === 'Enter') submit();
+              if (e.key === 'Escape') clear();
             }}
-            placeholder="搜索 ClawHub 技能，按 Enter 搜索..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground
-              placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="搜索 ClawHub 技能，支持语义搜索，按 Enter 确认…"
+            className="pl-9 pr-8"
           />
+          {searchQuery && (
+            <button
+              onClick={clear}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-        <button
-          onClick={() => setSubmittedQuery(searchQuery)}
+        <Button
+          onClick={submit}
           disabled={!searchQuery.trim()}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground
-            hover:bg-muted hover:text-foreground transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          size="sm"
+          variant="outline"
+          className="gap-1.5 shrink-0"
         >
           <Search className="w-3.5 h-3.5" />
           搜索
-        </button>
+        </Button>
       </div>
 
       <ClawHubTab searchQuery={searchQuery} submittedQuery={submittedQuery} />

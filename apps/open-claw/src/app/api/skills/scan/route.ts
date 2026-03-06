@@ -1,28 +1,9 @@
-/**
- * POST /api/skills/scan
- *
- * Uses a deepagents agentic loop (no tools — one-shot analysis) to inspect
- * a ClawHub skill's content for security risks before it is installed locally.
- *
- * Flow:
- *  1. Fetch skill detail from ClawHub (system prompt / content / summary).
- *  2. Feed the content to DeepSeek via deepagents.
- *  3. Stream SSE events: fetch_start / fetch_done / analyze_start / result / done / error.
- *
- * Verdicts:
- *  - safe      — no meaningful security concerns found
- *  - warning   — suspicious patterns worth reviewing; user may still install
- *  - dangerous — clear malicious intent; installation is strongly discouraged
- */
-
 import { NextRequest } from 'next/server';
 import { ChatOpenAI } from '@langchain/openai';
 import { createDeepAgent } from 'deepagents';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ScanResult {
   verdict: 'safe' | 'warning' | 'dangerous';
@@ -34,6 +15,7 @@ export type ScanSSEEvent =
   | { type: 'fetch_start' }
   | { type: 'fetch_done'; hasContent: boolean }
   | { type: 'analyze_start' }
+  | { type: 'stream'; token: string }
   | { type: 'result'; result: ScanResult }
   | { type: 'error'; message: string }
   | { type: 'done' };
@@ -52,13 +34,15 @@ interface ClawHubSkillDetail {
   };
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
 async function fetchSkillContent(slug: string): Promise<string> {
   try {
     const res = await fetch(`https://clawhub.ai/api/v1/skills/${encodeURIComponent(slug)}`, {
-      headers: { 'User-Agent': 'OpenClaw/1.0' },
-      signal: AbortSignal.timeout(10_000),
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'application/json, */*',
+      },
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!res.ok) return '';
@@ -116,12 +100,42 @@ function parseScanResult(raw: string): ScanResult {
   }
 }
 
-// ── Route handler ──────────────────────────────────────────────────────────────
+type Provider = 'deepseek' | 'kimi';
+
+interface ProviderConfig {
+  model: string;
+  baseURL: string;
+  temperature: number;
+}
+
+const PROVIDER_CONFIG: Record<Provider, ProviderConfig> = {
+  deepseek: { model: 'deepseek-reasoner', baseURL: 'https://api.deepseek.com', temperature: 1 },
+  kimi: { model: 'kimi-k2.5', baseURL: 'https://api.moonshot.cn/v1', temperature: 1 },
+};
+
+function buildModel(apiKey: string, provider: Provider, maxTokens: number) {
+  const cfg = PROVIDER_CONFIG[provider];
+
+  return new ChatOpenAI({
+    model: cfg.model,
+    apiKey,
+    configuration: { baseURL: cfg.baseURL },
+    temperature: cfg.temperature,
+    maxTokens,
+  });
+}
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as { slug?: string; apiKey?: string; content?: string };
+  const body = (await req.json()) as {
+    slug?: string;
+    apiKey?: string;
+    provider?: string;
+    content?: string;
+  };
   const slug = body.slug?.trim() ?? '';
   const apiKey = body.apiKey?.trim() ?? '';
+  const provider: Provider =
+    body.provider === 'kimi' || body.provider === 'deepseek' ? body.provider : 'deepseek';
   const providedContent = body.content?.trim() ?? '';
 
   if (!slug) {
@@ -129,16 +143,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!apiKey) {
-    return Response.json({ error: '请先在设置中配置 DeepSeek API Key' }, { status: 400 });
+    return Response.json({ error: '请先在设置中配置 DeepSeek 或 Kimi API Key' }, { status: 400 });
   }
 
-  const model = new ChatOpenAI({
-    model: 'deepseek-chat',
-    apiKey,
-    configuration: { baseURL: 'https://api.deepseek.com' },
-    temperature: 0.1,
-    maxTokens: 1024,
-  });
+  const model = buildModel(apiKey, provider, 4096);
 
   const encoder = new TextEncoder();
 
@@ -149,13 +157,11 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        // Step 1: use provided content (from installed file) or fetch from ClawHub
         send({ type: 'fetch_start' });
 
         const skillContent = providedContent || (await fetchSkillContent(slug));
         send({ type: 'fetch_done', hasContent: skillContent.length > 0 });
 
-        // Step 2: AI security analysis
         send({ type: 'analyze_start' });
 
         const contentToAnalyze =
@@ -220,7 +226,11 @@ export async function POST(req: NextRequest) {
         for await (const { event: type, data } of eventStream) {
           if (type === 'on_chat_model_stream') {
             const token = (data?.chunk as { content?: string })?.content ?? '';
-            if (token) finalContent += token;
+
+            if (token) {
+              finalContent += token;
+              send({ type: 'stream', token });
+            }
           }
         }
 

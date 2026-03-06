@@ -476,11 +476,17 @@ export function resolveModelListKey(providerKey: string, providerConfig: Provide
 
   const apiToKey: Record<string, string> = {
     'anthropic-messages': 'anthropic',
+    'openai-completions': 'openai',
+    'openai-responses': 'openai',
+    'openai-codex-responses': 'openai',
     openai: 'openai',
+    'google-generative-ai': 'gemini',
+    'bedrock-converse-stream': 'bedrock',
     bedrock: 'bedrock',
     gemini: 'gemini',
     vertex: 'gemini',
     'azure-openai': 'azure-openai',
+    ollama: 'ollama',
   };
 
   return apiToKey[providerConfig.api] ?? '';
