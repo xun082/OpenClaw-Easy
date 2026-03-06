@@ -119,7 +119,10 @@ declare global {
 
       // Markdown 文件 (~/.openclaw/*.md)
       readMarkdownFile: (filename: MarkdownFilename) => Promise<ReadMarkdownResult>;
-      writeMarkdownFile: (filename: MarkdownFilename, content: string) => Promise<WriteConfigResult>;
+      writeMarkdownFile: (
+        filename: MarkdownFilename,
+        content: string,
+      ) => Promise<WriteConfigResult>;
 
       // 技能
       listSkillFiles: (

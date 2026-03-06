@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { MdEditor } from 'md-editor-rt';
-import 'md-editor-rt/lib/style.css';
-import { Bot, Brain, CheckCircle2, FileText, IdCard, Loader2, Save, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { Bot, Brain, CheckCircle2, FileText, IdCard, Loader2, Save, User } from 'lucide-react';
+import { MdEditor } from 'md-editor-rt';
 
-import type { MarkdownFilename } from '@/electron';
 import { Button } from '@/components/ui/button';
+import type { MarkdownFilename } from '@/electron';
+
+import 'md-editor-rt/lib/style.css';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
