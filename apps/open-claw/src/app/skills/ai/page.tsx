@@ -1,38 +1,37 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
-  Sparkles,
-  Key,
-  Search,
-  Loader2,
   AlertCircle,
-  RotateCcw,
-  Settings,
-  Package,
-  ExternalLink,
   ArrowDownToLine,
+  Bug,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Bug,
+  ExternalLink,
+  Key,
+  Loader2,
+  Package,
+  RotateCcw,
+  Search,
+  Settings,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
-import Link from 'next/link';
 
+import type { SSEEvent } from '@/app/api/skills/recommend/route';
+import type { ScanResult, ScanSSEEvent } from '@/app/api/skills/scan/route';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { InstallLogEvent } from '@/electron';
+import { type AiRecommendResult, getApiKey } from '@/services/deepseekService';
+import { getKimiApiKey } from '@/services/kimiService';
 
 import SkillInstallDrawer, {
   type InstallStatus,
   type ScanStep,
 } from '../_components/SkillInstallDrawer';
-
-import { getApiKey, type AiRecommendResult } from '@/services/deepseekService';
-import type { SSEEvent } from '@/app/api/skills/recommend/route';
-import { getKimiApiKey } from '@/services/kimiService';
-import type { ScanResult, ScanSSEEvent } from '@/app/api/skills/scan/route';
-import type { InstallLogEvent } from '@/electron';
 
 type AiProvider = 'deepseek' | 'kimi';
 
@@ -77,11 +76,13 @@ interface SearchStep {
 const METHOD_BADGE: Record<string, { label: string; className: string }> = {
   cli: {
     label: '⚡ CLI',
-    className: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50',
+    className:
+      'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50',
   },
   http: {
     label: '🌐 HTTP',
-    className: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50',
+    className:
+      'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50',
   },
 };
 
@@ -96,6 +97,7 @@ function SearchSteps({ steps, searching }: { steps: SearchStep[]; searching: boo
       </div>
       {steps.map((s) => {
         const badge = s.method ? METHOD_BADGE[s.method] : null;
+
         return (
           <div key={s.step} className="flex items-center gap-2 text-[11px] font-mono flex-wrap">
             {s.count !== undefined ? (
@@ -104,7 +106,9 @@ function SearchSteps({ steps, searching }: { steps: SearchStep[]; searching: boo
               <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
             )}
             {badge && (
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${badge.className}`}>
+              <span
+                className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${badge.className}`}
+              >
                 {badge.label}
               </span>
             )}
@@ -112,7 +116,11 @@ function SearchSteps({ steps, searching }: { steps: SearchStep[]; searching: boo
             <span className="text-primary/80">{s.keywords.map((k) => `"${k}"`).join(', ')}</span>
             <span className="text-muted-foreground/60">)</span>
             {s.count !== undefined && (
-              <span className={s.count === 0 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'}>
+              <span
+                className={
+                  s.count === 0 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'
+                }
+              >
                 → {s.count === 0 ? '0 条（换个关键词？）' : `${s.count} 条`}
               </span>
             )}
@@ -169,33 +177,40 @@ async function runSecurityScan(
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
+
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
+
       const evt = JSON.parse(line.slice(6)) as ScanSSEEvent;
 
       if (evt.type === 'fetch_start') {
         steps.push({ id: 'fetch', label: '读取技能内容', done: false });
         onSteps([...steps]);
       }
+
       if (evt.type === 'fetch_done') {
         const s = steps.find((s) => s.id === 'fetch');
         if (s) s.done = true;
         steps.push({ id: 'analyze', label: 'AI 安全分析', done: false });
         onSteps([...steps]);
       }
+
       if (evt.type === 'stream') {
         streamText += evt.token;
         onStream(streamText);
       }
+
       if (evt.type === 'result') {
         result = evt.result;
+
         const s = steps.find((s) => s.id === 'analyze');
         if (s) s.done = true;
         onSteps([...steps]);
       }
+
       if (evt.type === 'error') throw new Error(evt.message);
     }
   }
@@ -354,6 +369,7 @@ export default function AiSkillsPage() {
     // Prefer DeepSeek; fall back to Kimi if DeepSeek is not configured
     const dsKey = getApiKey();
     const kimiKey = getKimiApiKey();
+
     if (dsKey) {
       setApiKeyState(dsKey);
       setProvider('deepseek');
@@ -370,12 +386,15 @@ export default function AiSkillsPage() {
       window.api.listWorkspaceSkills().then((res) => {
         if (res.success) setInstalledSlugs(new Set(res.skills.map((s) => s.name)));
       });
+
       const unsub = window.api.onSkillInstallLog((log) => {
         setActiveInstall((prev) => {
           if (!prev || (prev.status !== 'installing' && prev.status !== 'downloading')) return prev;
+
           return { ...prev, logs: [...prev.logs, log] };
         });
       });
+
       return () => unsub();
     }
   }, []);
@@ -413,26 +432,40 @@ export default function AiSkillsPage() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
+
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
+
           const evt = JSON.parse(line.slice(6)) as SSEEvent;
 
           if (evt.type === 'search_start') {
             const methodLabel = evt.method === 'cli' ? '[CLI]' : '[HTTP]';
-            log.push(`[${evt.step}] ${methodLabel} search_skills(${JSON.stringify(evt.keywords)}) → 搜索中...`);
-            setSearchSteps((prev) => [...prev, { step: evt.step, keywords: evt.keywords, method: evt.method }]);
+            log.push(
+              `[${evt.step}] ${methodLabel} search_skills(${JSON.stringify(evt.keywords)}) → 搜索中...`,
+            );
+            setSearchSteps((prev) => [
+              ...prev,
+              { step: evt.step, keywords: evt.keywords, method: evt.method },
+            ]);
           }
+
           if (evt.type === 'search_end') {
             const label = evt.count === 0 ? '0 条' : `${evt.count} 条结果`;
             const methodLabel = evt.method === 'cli' ? '[CLI]' : '[HTTP]';
-            log[log.length - 1] = log[log.length - 1].replace('搜索中...', `${label} via ${methodLabel}`);
+            log[log.length - 1] = log[log.length - 1].replace(
+              '搜索中...',
+              `${label} via ${methodLabel}`,
+            );
             setSearchSteps((prev) =>
-              prev.map((s) => (s.step === evt.step ? { ...s, count: evt.count, method: evt.method } : s)),
+              prev.map((s) =>
+                s.step === evt.step ? { ...s, count: evt.count, method: evt.method } : s,
+              ),
             );
           }
+
           if (evt.type === 'result') setResults(evt.results);
           if (evt.type === 'error') throw new Error(evt.message);
           if (evt.type === 'done') break;
@@ -460,6 +493,7 @@ export default function AiSkillsPage() {
       const result = await window.api.installClawHubSkill(slug);
       setActiveInstall((prev) => {
         if (!prev) return null;
+
         const finalLog: InstallLogEvent = {
           type: result.success ? 'info' : 'error',
           message: result.success
@@ -467,6 +501,7 @@ export default function AiSkillsPage() {
             : `✗ 安装失败${result.error ? `：${result.error}` : ''}`,
           timestamp: Date.now(),
         };
+
         return {
           ...prev,
           status: result.success ? 'success' : 'error',
@@ -484,11 +519,13 @@ export default function AiSkillsPage() {
     } catch (e) {
       setActiveInstall((prev) => {
         if (!prev) return null;
+
         const finalLog: InstallLogEvent = {
           type: 'error',
           message: `✗ 安装出错：${(e as Error).message}`,
           timestamp: Date.now(),
         };
+
         return { ...prev, status: 'error', logs: [...prev.logs, finalLog] };
       });
     }
@@ -507,40 +544,49 @@ export default function AiSkillsPage() {
         setHasToken(t);
         setActiveInstall((prev) => {
           if (!prev) return null;
+
           const finalLog: InstallLogEvent = {
             type: 'error',
             message: `✗ 下载失败${installResult.error ? `：${installResult.error}` : ''}`,
             timestamp: Date.now(),
           };
+
           return { ...prev, status: 'error', logs: [...prev.logs, finalLog] };
         });
+
         return;
       }
 
       setActiveInstall((prev) => {
         if (!prev) return null;
+
         const bridgeLog: InstallLogEvent = {
           type: 'info',
           message: '✓ 下载完成，开始安全扫描…',
           timestamp: Date.now(),
         };
+
         return { ...prev, logs: [...prev.logs, bridgeLog] };
       });
     } catch (e) {
       setActiveInstall((prev) => {
         if (!prev) return null;
+
         const finalLog: InstallLogEvent = {
           type: 'error',
           message: `✗ 下载出错：${(e as Error).message}`,
           timestamp: Date.now(),
         };
+
         return { ...prev, status: 'error', logs: [...prev.logs, finalLog] };
       });
+
       return;
     }
 
     // Read SKILL.md
     setActiveInstall((prev) => (prev ? { ...prev, status: 'scan_reading' } : null));
+
     let fileContent = '';
     let skillPath = '';
 
@@ -548,6 +594,7 @@ export default function AiSkillsPage() {
       const listResult = await window.api.listWorkspaceSkills();
       const skill = listResult.skills.find((s) => s.name === slug);
       skillPath = skill?.path ?? '';
+
       if (skillPath) {
         const readResult = await window.api.executeCommand(`cat "${skillPath}/SKILL.md"`);
         fileContent = readResult.output ?? '';
@@ -563,13 +610,18 @@ export default function AiSkillsPage() {
 
     try {
       const scanResult = await runSecurityScan(
-        slug, apiKey, provider, fileContent,
+        slug,
+        apiKey,
+        provider,
+        fileContent,
         (steps) => setActiveInstall((prev) => (prev ? { ...prev, scanSteps: steps } : null)),
         (text) => setActiveInstall((prev) => (prev ? { ...prev, scanStreamText: text } : null)),
       );
 
       if (scanResult.verdict === 'safe') {
-        setActiveInstall((prev) => (prev ? { ...prev, status: 'scan_safe', scanResult, skillPath } : null));
+        setActiveInstall((prev) =>
+          prev ? { ...prev, status: 'scan_safe', scanResult, skillPath } : null,
+        );
       } else {
         setActiveInstall((prev) =>
           prev
@@ -597,6 +649,7 @@ export default function AiSkillsPage() {
 
   const handleDeleteSkill = async () => {
     const path = activeInstall?.skillPath;
+
     if (path) {
       try {
         await window.api.executeCommand(`rm -rf "${path}"`);
@@ -604,6 +657,7 @@ export default function AiSkillsPage() {
         // ignore
       }
     }
+
     const res = await window.api.listWorkspaceSkills();
     if (res.success) setInstalledSlugs(new Set(res.skills.map((s) => s.name)));
     setActiveInstall(null);
@@ -611,12 +665,14 @@ export default function AiSkillsPage() {
 
   const handleCancelInstall = async () => {
     const path = activeInstall?.skillPath;
+
     if (path) {
       try {
         await window.api.executeCommand(`rm -rf "${path}"`);
       } catch {
         // ignore
       }
+
       const res = await window.api.listWorkspaceSkills();
       if (res.success) setInstalledSlugs(new Set(res.skills.map((s) => s.name)));
     }

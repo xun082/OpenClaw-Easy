@@ -2,20 +2,19 @@
 
 import { useEffect, useRef } from 'react';
 import {
-  X,
   CheckCircle,
   CheckCircle2,
-  XCircle,
   Loader2,
-  ShieldCheck,
   ShieldAlert,
+  ShieldCheck,
   ShieldX,
-  AlertTriangle,
   Trash2,
+  X,
+  XCircle,
 } from 'lucide-react';
 
-import type { InstallLogEvent } from '@/electron';
 import type { ScanResult } from '@/app/api/skills/scan/route';
+import type { InstallLogEvent } from '@/electron';
 
 export interface ScanStep {
   id: 'fetch' | 'analyze';
@@ -143,12 +142,15 @@ function ScanView({
         ))}
 
         {/* "Generating report" shown while streaming, hides once result arrives */}
-        {!isScanResult && steps.length > 0 && steps[steps.length - 1]?.id === 'analyze' && !steps[steps.length - 1]?.done && (
-          <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-600">
-            <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-            <span>AI 深度分析中…</span>
-          </div>
-        )}
+        {!isScanResult &&
+          steps.length > 0 &&
+          steps[steps.length - 1]?.id === 'analyze' &&
+          !steps[steps.length - 1]?.done && (
+            <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-600">
+              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              <span>AI 深度分析中…</span>
+            </div>
+          )}
       </div>
 
       {/* ── AI streaming analysis output (live, accumulates, never cleared) ── */}
@@ -183,9 +185,7 @@ function ScanView({
             {status === 'scan_warning' && (
               <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
             )}
-            {status === 'scan_dangerous' && (
-              <ShieldX className="w-4 h-4 text-red-400 shrink-0" />
-            )}
+            {status === 'scan_dangerous' && <ShieldX className="w-4 h-4 text-red-400 shrink-0" />}
             <span
               className={`text-xs font-semibold ${
                 status === 'scan_safe'
@@ -269,10 +269,12 @@ export default function SkillInstallDrawer({
     }
   }, [logs, status]);
 
-  const isScanning =
-    status === 'scan_reading' || status === 'scanning';
+  const isScanning = status === 'scan_reading' || status === 'scanning';
   const isScanPhase =
-    isScanning || status === 'scan_safe' || status === 'scan_warning' || status === 'scan_dangerous';
+    isScanning ||
+    status === 'scan_safe' ||
+    status === 'scan_warning' ||
+    status === 'scan_dangerous';
   const isScanResult =
     status === 'scan_safe' || status === 'scan_warning' || status === 'scan_dangerous';
   const isDone = status === 'success' || status === 'error' || isScanResult;
@@ -287,6 +289,7 @@ export default function SkillInstallDrawer({
     if (status === 'installing' || status === 'downloading')
       return <Loader2 className="w-4 h-4 animate-spin text-sky-400" />;
     if (status === 'success') return <CheckCircle className="w-4 h-4 text-emerald-400" />;
+
     return <XCircle className="w-4 h-4 text-red-400" />;
   })();
 
@@ -299,6 +302,7 @@ export default function SkillInstallDrawer({
     if (status === 'scan_dangerous') return `${slug} — 检测到高危风险`;
     if (status === 'installing') return `正在安装 ${slug}…`;
     if (status === 'success') return `${slug} 安装成功`;
+
     return `${slug} 安装失败`;
   })();
 
@@ -316,6 +320,7 @@ export default function SkillInstallDrawer({
         />
       );
     }
+
     return <LogView logs={logs} bottomRef={bottomRef} />;
   })();
 
@@ -329,7 +334,10 @@ export default function SkillInstallDrawer({
             扫描通过。点击「安装」将技能添加到工作区；关闭则不保留。
           </p>
           <button
-            onClick={() => { onConfirmInstall?.(); onClose(); }}
+            onClick={() => {
+              onConfirmInstall?.();
+              onClose();
+            }}
             className="text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-medium transition-colors"
           >
             安装

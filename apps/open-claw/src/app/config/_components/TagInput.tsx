@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
 
 interface TagInputProps {
@@ -15,6 +16,7 @@ export function TagInput({ values, onChange, placeholder }: TagInputProps) {
 
   const add = () => {
     const v = input.trim();
+
     if (v) {
       onChange([...values.filter((x) => x !== v), v]);
       setInput('');
@@ -42,6 +44,7 @@ export function TagInput({ values, onChange, placeholder }: TagInputProps) {
             e.preventDefault();
             add();
           }
+
           if (e.key === 'Backspace' && !input && values.length > 0) {
             onChange(values.slice(0, -1));
           }

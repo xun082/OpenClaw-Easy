@@ -1,2 +1,2 @@
-export * from './window-manager';
 export * from './window-factory';
+export * from './window-manager';

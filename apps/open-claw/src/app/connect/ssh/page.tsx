@@ -1,47 +1,47 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Server,
-  XCircle,
-  Loader2,
-  Trash2,
-  Terminal,
+  Activity,
+  CheckCheck,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Plus,
-  Key,
-  Lock,
-  Plug,
-  Play,
-  Pencil,
+  Copy,
+  Download,
+  ExternalLink,
   Eye,
   EyeOff,
-  Download,
-  Upload,
-  Copy,
-  CheckCheck,
-  ExternalLink,
-  Package,
-  CheckCircle2,
-  Activity,
-  RefreshCw,
-  Info,
-  Shield,
   Fingerprint,
+  Info,
+  Key,
+  Loader2,
+  Lock,
+  Package,
+  Pencil,
+  Play,
+  Plug,
+  Plus,
+  RefreshCw,
+  Server,
+  Shield,
+  Terminal,
+  Trash2,
+  Upload,
   Wand2,
+  XCircle,
 } from 'lucide-react';
 
-import { useConnectionStore } from '@/store/connection-store';
+import type { SSHConn } from '@/lib/ssh-utils';
 import {
-  buildSshCmd,
-  buildListLocalKeysCmd,
-  buildReadPubKeyCmd,
+  buildCopyIdCmd,
   buildFixKeyPermCmd,
   buildGenKeyCmd,
-  buildCopyIdCmd,
+  buildListLocalKeysCmd,
+  buildReadPubKeyCmd,
+  buildSshCmd,
 } from '@/lib/ssh-utils';
-import type { SSHConn } from '@/lib/ssh-utils';
+import { useConnectionStore } from '@/store/connection-store';
 
 type SSHConnStatus =
   | 'idle'

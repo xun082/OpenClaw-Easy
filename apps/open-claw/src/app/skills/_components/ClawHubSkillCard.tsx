@@ -1,13 +1,14 @@
 import {
-  Download,
-  Star,
-  Package,
   ArrowDownToLine,
-  Loader2,
-  ExternalLink,
   CheckCircle2,
+  Download,
+  ExternalLink,
+  Loader2,
+  Package,
   ShieldCheck,
+  Star,
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 
 export interface ClawHubSkill {

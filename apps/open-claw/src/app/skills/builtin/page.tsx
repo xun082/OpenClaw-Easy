@@ -1,23 +1,23 @@
 'use client';
 
-import { useEffect, useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  RefreshCw,
-  FolderOpen,
-  Search,
-  Box,
-  Loader2,
   AlertCircle,
+  Box,
+  FolderOpen,
+  Loader2,
   Monitor,
+  RefreshCw,
+  Search,
   Server,
 } from 'lucide-react';
 
-import SkillCard from '../_components/SkillCard';
-
 import type { Skill } from '@/electron';
-import { useConnectionStore, selectActiveConn } from '@/store/connection-store';
-import { buildSshCmd } from '@/lib/ssh-utils';
 import type { SSHConn } from '@/lib/ssh-utils';
+import { buildSshCmd } from '@/lib/ssh-utils';
+import { selectActiveConn, useConnectionStore } from '@/store/connection-store';
+
+import SkillCard from '../_components/SkillCard';
 
 // ── Remote builtin skill listing ──────────────────────────────────────────────
 

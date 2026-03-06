@@ -1,4 +1,4 @@
-import { Menu, dialog, app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, Menu } from 'electron';
 
 export interface MenuTemplate {
   label: string;

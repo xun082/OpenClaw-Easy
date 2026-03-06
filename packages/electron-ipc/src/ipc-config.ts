@@ -1,23 +1,23 @@
-import { ipcMain, dialog, Notification, BrowserWindow, shell } from 'electron';
-import { join, dirname } from 'path';
+import { is } from '@electron-toolkit/utils';
 import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
-import { homedir, userInfo } from 'os';
+import { randomBytes } from 'crypto';
+import { BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
 import {
+  cpSync,
   existsSync,
-  readFileSync,
-  writeFileSync,
   mkdirSync,
   readdirSync,
-  unlinkSync,
-  statSync,
-  cpSync,
+  readFileSync,
   rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
 } from 'fs';
-import { extname, basename } from 'path';
 import { createServer } from 'http';
-import { randomBytes } from 'crypto';
-import { is } from '@electron-toolkit/utils';
+import { homedir, userInfo } from 'os';
+import { dirname, join } from 'path';
+import { basename, extname } from 'path';
+import { promisify } from 'util';
 
 // Callback HTML served to the browser after ClawHub OAuth redirect
 const CLAWHUB_CALLBACK_HTML = `<!doctype html>
@@ -406,6 +406,7 @@ export class IpcConfig {
         // 2. If plist is missing, run `openclaw gateway install` to create it
         if (!existsSync(plistPath)) {
           console.log('plist not found, running openclaw gateway install…');
+
           try {
             const { stdout, stderr } = await execAsync(
               '/bin/zsh -l -c "openclaw gateway install"',

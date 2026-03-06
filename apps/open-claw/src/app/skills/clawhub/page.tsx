@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
 import ClawHubTab from '../_components/ClawHubTab';
 
 export default function ClawHubPage() {

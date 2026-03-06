@@ -1,36 +1,38 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { json as jsonLang } from '@codemirror/lang-json';
+import { oneDark } from '@codemirror/theme-one-dark';
 import {
-  Save,
-  RefreshCw,
-  FilePlus,
-  CheckCircle2,
   AlertCircle,
-  Loader2,
-  FolderOpen,
-  Copy,
   Check,
-  Plus,
-  Trash2,
-  Eye,
-  EyeOff,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Code2,
-  X,
-  Monitor,
-  Server,
+  Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
+  FilePlus,
+  FolderOpen,
   GripVertical,
+  Loader2,
+  Monitor,
+  Plus,
+  RefreshCw,
+  Save,
+  Server,
+  Trash2,
+  X,
   Zap,
 } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -38,26 +40,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-import { json as jsonLang } from '@codemirror/lang-json';
-import { oneDark } from '@codemirror/theme-one-dark';
-
-import { API_OPTIONS, PROVIDER_MODELS, PROVIDER_PRESETS } from '@/lib/openclaw-providers';
 import type { ModelOption } from '@/lib/openclaw-providers';
-import { EMPTY_CONFIG, normalizeConfig, useConfigStore } from '@/store/config-store';
-import type { AgentModelConfig, OpenclawConfig } from '@/store/config-store';
-import { useConfigPageStore } from '@/store/config-page-store';
-import { selectActiveConn, useConnectionStore } from '@/store/connection-store';
-import { buildSshCmd } from '@/lib/ssh-utils';
+import { API_OPTIONS, PROVIDER_MODELS, PROVIDER_PRESETS } from '@/lib/openclaw-providers';
 import type { SSHConn } from '@/lib/ssh-utils';
+import { buildSshCmd } from '@/lib/ssh-utils';
 import { cn } from '@/lib/utils';
-import { FormSection } from './_components/FormSection';
-import { FieldGroup } from './_components/FieldGroup';
+import { useConfigPageStore } from '@/store/config-page-store';
+import type { AgentModelConfig, OpenclawConfig } from '@/store/config-store';
+import { EMPTY_CONFIG, normalizeConfig, useConfigStore } from '@/store/config-store';
+import { selectActiveConn, useConnectionStore } from '@/store/connection-store';
+
 import { EmptySlot } from './_components/EmptySlot';
+import { FieldGroup } from './_components/FieldGroup';
+import { FormSection } from './_components/FormSection';
+import { ModelSelector } from './_components/ModelSelector';
 import { SegmentedControl } from './_components/SegmentedControl';
 import { TagInput } from './_components/TagInput';
-import { ModelSelector } from './_components/ModelSelector';
 
 // CodeMirror dynamically loaded — avoids SSR issues
 const CodeMirrorEditor = dynamic(() => import('@uiw/react-codemirror'), { ssr: false });
@@ -153,13 +153,16 @@ export default function ConfigPage() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
         const el = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+
         if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
           e.preventDefault();
           el.select();
         }
       }
     };
+
     document.addEventListener('keydown', handler);
+
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
@@ -167,14 +170,17 @@ export default function ConfigPage() {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
+
       const delta = dragStartX.current - e.clientX;
       setPanelWidth(Math.max(260, Math.min(720, dragStartWidth.current + delta)));
     };
     const onUp = () => {
       isDragging.current = false;
     };
+
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+
     return () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
@@ -185,11 +191,14 @@ export default function ConfigPage() {
 
   const loadRemoteConfig = async (conn: SSHConn) => {
     useConfigStore.setState({ loading: true, saveStatus: 'idle', errorMsg: '' });
+
     const remotePath = `${conn.username}@${conn.host}:~/.openclaw/openclaw.json`;
+
     try {
       const script = `cat ~/.openclaw/openclaw.json 2>/dev/null || echo '__NOTFOUND__'`;
       const res = await window.api.executeCommand(buildSshCmd(conn, script));
       const output = (res.output ?? '').trim();
+
       if (!res.success || output === '__NOTFOUND__' || output === '') {
         useConfigStore.setState({
           exists: false,
@@ -208,6 +217,7 @@ export default function ConfigPage() {
             configPath: remotePath,
             loading: false,
           });
+
           const keys = Object.keys(parsed?.models?.providers ?? {});
           if (keys[0]) setExpandedProviders({ [keys[0]]: true });
         } catch {
@@ -228,15 +238,19 @@ export default function ConfigPage() {
 
   const saveRemoteConfig = async (conn: SSHConn) => {
     if (!config) return;
+
     const jsonStr = JSON.stringify(config, null, 2);
     const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
     const script = `mkdir -p ~/.openclaw && echo '${b64}' | base64 -d > ~/.openclaw/openclaw.json && echo "SAVED" || echo "FAILED"`;
     useConfigStore.setState({ saveStatus: 'saving', errorMsg: '' });
+
     try {
       const res = await window.api.executeCommand(buildSshCmd(conn, script));
       const out = (res.output ?? '').trim();
+
       if (out.includes('SAVED') || res.success) {
         useConfigStore.setState({ savedConfig: config, exists: true, saveStatus: 'reloading' });
+
         const rRes = await window.api.executeCommand(
           buildSshCmd(
             conn,
@@ -291,7 +305,6 @@ export default function ConfigPage() {
   useEffect(() => {
     if (!mounted) return;
     handleLoadConfig();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, selectedConnId]);
 
   // ── Sync config → JSON editor ───────────────────────────────────────────────
@@ -320,19 +333,23 @@ export default function ConfigPage() {
 
     for (const ak of aliasModelKeys) {
       const slash = ak.indexOf('/');
+
       if (slash > 0) {
         const pName = ak.slice(0, slash);
+
         if (!formalProviders[pName] && PROVIDER_MODELS[pName] && !seen.has(pName)) {
           seen.set(pName, PROVIDER_MODELS[pName]);
         }
       }
     }
+
     return [...seen.entries()]; // [["kimi-coding", [...]]]
   }, [config?.agents?.defaults?.models, config?.models?.providers]);
 
   // ── JSON editor handler ─────────────────────────────────────────────────────
   const handleJsonChange = (value: string) => {
     setJsonText(value);
+
     try {
       const parsed = JSON.parse(value) as OpenclawConfig;
       useConfigStore.getState().setConfig(normalizeConfig(parsed));
@@ -405,9 +422,8 @@ export default function ConfigPage() {
         <div className="text-center space-y-1.5">
           <p className="text-sm font-semibold">配置文件不存在</p>
           <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
-            未找到{' '}
-            <code className="font-mono text-foreground/70">~/.openclaw/openclaw.json</code>，运行{' '}
-            <code className="font-mono text-foreground/70">openclaw onboard</code>{' '}
+            未找到 <code className="font-mono text-foreground/70">~/.openclaw/openclaw.json</code>
+            ，运行 <code className="font-mono text-foreground/70">openclaw onboard</code>{' '}
             可自动创建，或点击下方按钮使用默认模板。
           </p>
         </div>
@@ -745,6 +761,7 @@ export default function ConfigPage() {
                   <div className="p-3 grid grid-cols-3 gap-2">
                     {PROVIDER_PRESETS.map((preset) => {
                       const already = !!config?.models?.providers?.[preset.id];
+
                       return (
                         <button
                           key={preset.id}
@@ -782,6 +799,7 @@ export default function ConfigPage() {
                       onChange={(e) => setCustomProviderName(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') addCustomProvider();
+
                         if (e.key === 'Escape') {
                           setProviderPickerOpen(false);
                           setCustomProviderName('');
@@ -807,6 +825,7 @@ export default function ConfigPage() {
                   {providerEntries.map(([name, provider]) => {
                     const isExpanded = !!expandedProviders[name];
                     const isKeyVisible = !!showKeys[name];
+
                     return (
                       <div
                         key={name}
@@ -886,9 +905,7 @@ export default function ConfigPage() {
                                 <Input
                                   type={isKeyVisible ? 'text' : 'password'}
                                   value={provider.apiKey}
-                                  onChange={(e) =>
-                                    updateProvider(name, { apiKey: e.target.value })
-                                  }
+                                  onChange={(e) => updateProvider(name, { apiKey: e.target.value })}
                                   placeholder="sk-..."
                                   className="font-mono pr-9"
                                 />
@@ -931,6 +948,7 @@ export default function ConfigPage() {
                     const key = `virtual:${name}`;
                     const isExpanded = !!expandedProviders[key];
                     const preset = PROVIDER_PRESETS.find((p) => p.id === name);
+
                     return (
                       <div
                         key={key}
@@ -1356,9 +1374,7 @@ export default function ConfigPage() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() =>
-                  setRestartLog(restartLog ? { ...restartLog, visible: false } : null)
-                }
+                onClick={() => setRestartLog(restartLog ? { ...restartLog, visible: false } : null)}
                 className="text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 h-6 w-6"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1370,6 +1386,7 @@ export default function ConfigPage() {
                     const isErr =
                       /error|invalid|failed|problem/i.test(line) && !line.includes('best-effort');
                     const isOk = /success|started|ready|running|restarted/i.test(line);
+
                     return (
                       <span
                         key={i}
@@ -1457,4 +1474,3 @@ export default function ConfigPage() {
     </TooltipProvider>
   );
 }
-

@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import {
-  Puzzle,
   ChevronRight,
+  File,
+  FileCode,
+  FileText,
   Folder,
   FolderOpen,
-  FileText,
-  FileCode,
-  File,
   Loader2,
+  Puzzle,
 } from 'lucide-react';
-import type { Skill, FileEntry } from '@/electron';
+
+import type { FileEntry, Skill } from '@/electron';
 
 // ── File icon helpers ────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   if (CODE_EXTS.has(ext)) return <FileCode className={className} />;
   if (DOC_EXTS.has(ext)) return <FileText className={className} />;
+
   return <File className={className} />;
 }
 
@@ -60,9 +62,11 @@ function TreeNode({ entry, depth }: { entry: FileEntry; depth: number }) {
         )}
         <span className={isDir ? 'text-foreground/80 font-medium' : ''}>{entry.name}</span>
       </div>
-      {isDir && open && entry.children?.map((child) => (
-        <TreeNode key={child.name} entry={child} depth={depth + 1} />
-      ))}
+      {isDir &&
+        open &&
+        entry.children?.map((child) => (
+          <TreeNode key={child.name} entry={child} depth={depth + 1} />
+        ))}
     </div>
   );
 }
@@ -84,8 +88,10 @@ export default function SkillCard({ skill }: Props) {
   const handleToggle = async () => {
     const next = !expanded;
     setExpanded(next);
+
     if (next && tree === null && isElectronEnv()) {
       setLoadingTree(true);
+
       try {
         const result = await window.api.listSkillFiles(skill.path);
         setTree(result.success ? result.tree : []);

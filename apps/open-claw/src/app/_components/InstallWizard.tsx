@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { CheckCircle2, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckCircle2, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+
+import type { InstallLogEvent } from '@/electron';
+
 import StepCard, { type StepStatus } from './StepCard';
 import TerminalOutput from './TerminalOutput';
-import type { InstallLogEvent } from '@/electron';
 
 interface StepState<T = Record<string, never>> {
   status: StepStatus;
@@ -49,14 +51,15 @@ export default function InstallWizard() {
 
   useEffect(() => {
     const el = isElectronEnv();
+
     if (!el) {
       setState((prev) => ({ ...prev, isElectron: false, phase: 'ready' }));
 
       return;
     }
+
     setState((prev) => ({ ...prev, isElectron: true }));
     runNodeCheck();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const runNodeCheck = async () => {
@@ -239,9 +242,7 @@ export default function InstallWizard() {
           status={state.openclawInstall.status}
           description={openclawDesc}
           badge={
-            state.openclawInstall.status === 'idle'
-              ? 'npm install -g openclaw@latest'
-              : undefined
+            state.openclawInstall.status === 'idle' ? 'npm install -g openclaw@latest' : undefined
           }
         />
       </div>

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { tool } from '@langchain/core/tools';
-import { z } from 'zod';
 import { ChatOpenAI } from '@langchain/openai';
 import { createDeepAgent } from 'deepagents';
+import { z } from 'zod';
 
 import { searchClawHub } from '@/lib/clawhub-search';
 

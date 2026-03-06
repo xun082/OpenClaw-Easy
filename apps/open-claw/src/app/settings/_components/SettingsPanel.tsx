@@ -1,22 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Key,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
   Eye,
   EyeOff,
-  CheckCircle2,
-  Trash2,
-  ExternalLink,
+  Key,
   Save,
-  AlertCircle,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { getApiKey, saveApiKey, clearApiKey } from '@/services/deepseekService';
-import { getKimiApiKey, saveKimiApiKey, clearKimiApiKey } from '@/services/kimiService';
+import { clearApiKey, getApiKey, saveApiKey } from '@/services/deepseekService';
+import { clearKimiApiKey, getKimiApiKey, saveKimiApiKey } from '@/services/kimiService';
 
 // ─── Provider registry ─────────────────────────────────────────────────────────
 
@@ -40,8 +41,7 @@ const PROVIDERS: ProviderDef[] = [
     id: 'deepseek',
     name: 'DeepSeek',
     tagline: 'DeepSeek API Key',
-    description:
-      'AI 推荐（技能搜索）使用 DeepSeek V3，安全扫描使用 DeepSeek R1（深度推理）。',
+    description: 'AI 推荐（技能搜索）使用 DeepSeek V3，安全扫描使用 DeepSeek R1（深度推理）。',
     placeholder: 'sk-...',
     docsUrl: 'https://platform.deepseek.com/api_keys',
     docsLabel: '前往 DeepSeek 平台获取 API Key',
@@ -141,6 +141,7 @@ export default function SettingsPanel() {
             {PROVIDERS.map((p) => {
               const configured = Boolean(keys[p.id]);
               const active = p.id === selectedId;
+
               return (
                 <button
                   key={p.id}
@@ -160,9 +161,7 @@ export default function SettingsPanel() {
                     {p.avatar}
                   </span>
                   {p.name}
-                  {configured && (
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                  )}
+                  {configured && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
                 </button>
               );
             })}
@@ -219,11 +218,7 @@ export default function SettingsPanel() {
                   onClick={() => setShowKey((v) => !v)}
                   className="text-muted-foreground/50 hover:text-muted-foreground transition-colors p-0.5"
                 >
-                  {showKey ? (
-                    <EyeOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Eye className="w-3.5 h-3.5" />
-                  )}
+                  {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   onClick={handleClear}
@@ -274,8 +269,8 @@ export default function SettingsPanel() {
           <div className="space-y-0.5">
             <p className="text-xs font-medium">本地存储，数据安全</p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              所有 API Key 仅保存在本机 localStorage，清除浏览器数据或重装应用后需重新配置。
-              如需将 Key 注入到网关进程，请前往「配置文件 → 环境变量」。
+              所有 API Key 仅保存在本机 localStorage，清除浏览器数据或重装应用后需重新配置。 如需将
+              Key 注入到网关进程，请前往「配置文件 → 环境变量」。
             </p>
           </div>
         </div>

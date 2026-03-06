@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+
 import type { InstallLogEvent } from '@/electron';
 
 interface TerminalOutputProps {
@@ -35,9 +36,7 @@ export default function TerminalOutput({ logs }: TerminalOutputProps) {
         <div className="w-3 h-3 rounded-full bg-red-500/70" />
         <div className="w-3 h-3 rounded-full bg-amber-500/70" />
         <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
-        <span className="ml-2 text-[11px] text-zinc-500 font-mono tracking-wide">
-          安装日志
-        </span>
+        <span className="ml-2 text-[11px] text-zinc-500 font-mono tracking-wide">安装日志</span>
       </div>
 
       <div className="p-4 h-52 overflow-y-auto font-mono text-[12px] leading-[1.65] space-y-px scrollbar-thin">

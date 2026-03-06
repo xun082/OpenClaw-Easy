@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Download,
-  Trash2,
-  RefreshCw,
-  Terminal,
   AlertTriangle,
   ArrowRight,
+  CheckCircle2,
+  Download,
+  Loader2,
+  RefreshCw,
   Settings,
+  Terminal,
+  Trash2,
+  XCircle,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

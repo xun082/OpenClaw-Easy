@@ -1,22 +1,29 @@
-// 抑制 macOS 系统日志噪音（需在 import 之前执行） 
+// 抑制 macOS 系统日志噪音（需在 import 之前执行）
 if (process.platform === 'darwin') {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-  const MACOS_NOISE = ['IMKCFRunLoopWakeUpReliable', 'mach port', 'messaging the mach port', 'error messaging'];
+  const MACOS_NOISE = [
+    'IMKCFRunLoopWakeUpReliable',
+    'mach port',
+    'messaging the mach port',
+    'error messaging',
+  ];
   const isNoise = (msg: string) => MACOS_NOISE.some((s) => msg.includes(s));
 
   const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
   process.stderr.write = function (chunk: any, encoding?: any, callback?: any) {
     if (typeof chunk === 'string' && isNoise(chunk)) return true;
+
     return originalStderrWrite(chunk, encoding, callback);
   };
 }
 
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
-import { join } from 'path';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { AppConfigManager, MenuConfig } from '@monorepo/electron-core';
 import { IpcConfig } from '@monorepo/electron-ipc';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { join } from 'path';
 
 // macOS GPU 相关噪音抑制
 if (process.platform === 'darwin') {

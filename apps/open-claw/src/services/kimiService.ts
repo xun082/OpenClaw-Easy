@@ -9,11 +9,13 @@ const KEY_STORAGE = 'openclaw_kimi_api_key';
 
 export function getKimiApiKey(): string {
   if (typeof localStorage === 'undefined') return '';
+
   return localStorage.getItem(KEY_STORAGE) ?? '';
 }
 
 export function saveKimiApiKey(key: string): void {
   if (typeof localStorage === 'undefined') return;
+
   if (key.trim()) {
     localStorage.setItem(KEY_STORAGE, key.trim());
   } else {

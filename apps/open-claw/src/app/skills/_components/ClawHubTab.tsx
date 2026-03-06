@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, AlertCircle, ExternalLink, Box, LogIn, CheckCircle2 } from 'lucide-react';
-
-import ClawHubSkillCard, { type ClawHubSkill } from './ClawHubSkillCard';
-import SkillInstallDrawer, { type InstallStatus, type ScanStep } from './SkillInstallDrawer';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, Box, CheckCircle2, ExternalLink, Loader2, LogIn } from 'lucide-react';
 
 import type { InstallLogEvent } from '@/electron';
 import { getApiKey } from '@/services/deepseekService';
 import { getKimiApiKey } from '@/services/kimiService';
+
+import ClawHubSkillCard, { type ClawHubSkill } from './ClawHubSkillCard';
+import SkillInstallDrawer, { type InstallStatus, type ScanStep } from './SkillInstallDrawer';
 
 type AiProvider = 'deepseek' | 'kimi';
 
@@ -16,10 +16,13 @@ type AiProvider = 'deepseek' | 'kimi';
 function getAvailableApiKey(): { apiKey: string; provider: AiProvider } | null {
   const ds = getApiKey();
   if (ds) return { apiKey: ds, provider: 'deepseek' };
+
   const kimi = getKimiApiKey();
   if (kimi) return { apiKey: kimi, provider: 'kimi' };
+
   return null;
 }
+
 import type { ScanResult, ScanSSEEvent } from '@/app/api/skills/scan/route';
 
 // ── API helpers (all calls go through the Next.js server to avoid browser-side 429s) ──
@@ -41,15 +44,18 @@ async function fetchPage(cursor?: string): Promise<ListResponse> {
   if (cursor) params.set('cursor', cursor);
 
   const res = await fetch(`/api/skills/browse?${params}`);
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
   }
+
   return res.json() as Promise<ListResponse>;
 }
 
 async function fetchSearch(q: string): Promise<ClawHubSkill[]> {
   const res = await fetch(`/api/skills/search?${new URLSearchParams({ q })}`);
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -123,33 +129,40 @@ async function runSecurityScan(
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
+
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
+
       const evt = JSON.parse(line.slice(6)) as ScanSSEEvent;
 
       if (evt.type === 'fetch_start') {
         steps.push({ id: 'fetch', label: '读取技能内容', done: false });
         onSteps([...steps]);
       }
+
       if (evt.type === 'fetch_done') {
         const s = steps.find((s) => s.id === 'fetch');
         if (s) s.done = true;
         steps.push({ id: 'analyze', label: 'AI 安全分析', done: false });
         onSteps([...steps]);
       }
+
       if (evt.type === 'stream') {
         streamText += evt.token;
         onStream(streamText);
       }
+
       if (evt.type === 'result') {
         result = evt.result;
+
         const s = steps.find((s) => s.id === 'analyze');
         if (s) s.done = true;
         onSteps([...steps]);
       }
+
       if (evt.type === 'error') throw new Error(evt.message);
     }
   }
@@ -403,6 +416,7 @@ export default function ClawHubTab({ submittedQuery }: Props) {
 
       const keyInfo = getAvailableApiKey();
       if (!keyInfo) return;
+
       const { apiKey, provider } = keyInfo;
 
       // Step 1: download + install (logs stream in via onSkillInstallLog)
@@ -483,14 +497,19 @@ export default function ClawHubTab({ submittedQuery }: Props) {
 
       try {
         const scanResult = await runSecurityScan(
-          slug, apiKey, provider, fileContent,
+          slug,
+          apiKey,
+          provider,
+          fileContent,
           (steps) => setActiveInstall((prev) => (prev ? { ...prev, scanSteps: steps } : null)),
           (text) => setActiveInstall((prev) => (prev ? { ...prev, scanStreamText: text } : null)),
         );
 
         if (scanResult.verdict === 'safe') {
           // Keep skillPath so we can remove skill if user closes without confirming
-          setActiveInstall((prev) => (prev ? { ...prev, status: 'scan_safe', scanResult, skillPath } : null));
+          setActiveInstall((prev) =>
+            prev ? { ...prev, status: 'scan_safe', scanResult, skillPath } : null,
+          );
         } else {
           setActiveInstall((prev) =>
             prev
@@ -537,12 +556,14 @@ export default function ClawHubTab({ submittedQuery }: Props) {
   // When user closes drawer without clicking "安装" (scan_safe), remove the skill from workspace
   const handleCancelInstall = useCallback(async () => {
     const path = activeInstall?.skillPath;
+
     if (path) {
       try {
         await window.api.executeCommand(`rm -rf "${path}"`);
       } catch {
         // ignore
       }
+
       await refreshInstalledSlugs();
     }
   }, [activeInstall?.skillPath, refreshInstalledSlugs]);

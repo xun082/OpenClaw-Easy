@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Loader2, Circle, MinusCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, MinusCircle, XCircle } from 'lucide-react';
 
 export type StepStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
 

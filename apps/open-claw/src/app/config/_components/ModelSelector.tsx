@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { AlertCircle, X, Zap } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,10 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PROVIDER_MODELS, resolveModelListKey } from '@/lib/openclaw-providers';
 import type { ModelOption, ProviderConfig } from '@/lib/openclaw-providers';
-import { autoSelectModel } from '@/store/config-store';
+import { PROVIDER_MODELS, resolveModelListKey } from '@/lib/openclaw-providers';
 import { cn } from '@/lib/utils';
+import { autoSelectModel } from '@/store/config-store';
 
 interface ModelSelectorProps {
   value: string;
@@ -31,13 +32,16 @@ export function ModelSelector({ value, providers, aliasKeys = [], onChange }: Mo
   // e.g. "kimi-coding/k2p5" → virtual provider "kimi-coding" (env-var based, has model catalog)
   const virtualProviderKeys = useMemo(() => {
     const seen = new Set<string>();
+
     for (const ak of [...aliasKeys, value]) {
       const slash = ak.indexOf('/');
+
       if (slash > 0) {
         const pName = ak.slice(0, slash);
         if (!providerKeys.includes(pName) && PROVIDER_MODELS[pName]) seen.add(pName);
       }
     }
+
     return [...seen];
   }, [aliasKeys, providerKeys, value]);
 
@@ -50,10 +54,13 @@ export function ModelSelector({ value, providers, aliasKeys = [], onChange }: Mo
   const getModels = useCallback(
     (key: string): ModelOption[] => {
       const prov = providers[key];
+
       if (prov) {
         const listKey = resolveModelListKey(key, prov);
+
         return listKey ? (PROVIDER_MODELS[listKey] ?? []) : [];
       }
+
       // Virtual provider — use catalog directly
       return PROVIDER_MODELS[key] ?? [];
     },
@@ -81,8 +88,10 @@ export function ModelSelector({ value, providers, aliasKeys = [], onChange }: Mo
           onValueChange={(p) => {
             if (p === '__none__') {
               onChange('');
+
               return;
             }
+
             if (providers[p]) {
               onChange(autoSelectModel(p, providers));
             } else {

@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { HardDriveDownload, Loader2 } from 'lucide-react';
+
 import type { InstallLogEvent } from '@/electron';
+
 import SkillInstallDrawer, { type InstallStatus } from './SkillInstallDrawer';
 
 interface ActiveInstall {
@@ -33,13 +35,12 @@ export default function LocalInstallButton({ isElectron, onInstalled }: Props) {
       const slug = sourcePath.split('/').pop() ?? sourcePath;
 
       // Register log listener before calling install so we don't miss early logs
-      const logs: InstallLogEvent[] = [];
-
       setActiveInstall({ slug, logs: [], status: 'installing' });
 
       const unsubscribe = window.api.onSkillInstallLog((log) => {
         setActiveInstall((prev) => {
           if (!prev || prev.status !== 'installing') return prev;
+
           return { ...prev, logs: [...prev.logs, log] };
         });
       });

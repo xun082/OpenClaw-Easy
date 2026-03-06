@@ -1,5 +1,5 @@
-import { ipcMain } from 'electron';
 import { IpcHandler } from '@monorepo/electron-core';
+import { ipcMain } from 'electron';
 
 export class ElectronIpcHandler implements IpcHandler {
   setupHandlers(): void {

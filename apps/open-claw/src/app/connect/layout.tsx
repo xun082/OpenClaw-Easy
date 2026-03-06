@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Download, Wifi, Server } from 'lucide-react';
+import { Download, Server, Wifi } from 'lucide-react';
 
 const SUB_NAV = [
   { href: '/connect', label: '本地安装', Icon: Download, exact: true },

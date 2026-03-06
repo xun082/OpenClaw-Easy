@@ -1,5 +1,5 @@
-import { BrowserWindow } from 'electron';
 import { WindowOptions } from '@monorepo/electron-core';
+import { BrowserWindow } from 'electron';
 
 export class WindowFactory {
   static createWindow(options: WindowOptions): BrowserWindow {

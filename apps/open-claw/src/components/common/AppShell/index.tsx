@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Terminal, Home, Puzzle, FileJson, Settings, PlugZap } from 'lucide-react';
+import { FileJson, Home, PlugZap, Puzzle, Settings, Terminal } from 'lucide-react';
+
 import { ThemeToggle } from '@/components/theme-toggle';
 
 const NAV_ITEMS = [
@@ -95,9 +96,7 @@ export default function AppShell({ children }: AppShellProps) {
                     {item.sublabel}
                   </p>
                 </div>
-                {isActive && (
-                  <div className="ml-auto w-1 h-4 rounded-full bg-primary shrink-0" />
-                )}
+                {isActive && <div className="ml-auto w-1 h-4 rounded-full bg-primary shrink-0" />}
               </Link>
             );
           })}

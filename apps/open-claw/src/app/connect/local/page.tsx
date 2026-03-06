@@ -1,22 +1,23 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Copy,
   CheckCheck,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  Terminal,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Plug,
+  Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
   Key,
+  Loader2,
+  Plug,
+  RefreshCw,
+  Terminal,
+  XCircle,
 } from 'lucide-react';
+
 import { useConfigStore } from '@/store/config-store';
 
 type ConnStatus = 'idle' | 'connecting' | 'connected' | 'failed' | 'timeout';
@@ -33,10 +34,13 @@ async function probeGateway(url: string, token: string): Promise<TestResult> {
   const t0 = Date.now();
 
   const httpUrl = url.replace(/^wss?:\/\//, (m) => (m === 'wss://' ? 'https://' : 'http://'));
-  const isLocal =
-    url.includes('127.0.0.1') || url.includes('localhost') || url.includes('0.0.0.0');
+  const isLocal = url.includes('127.0.0.1') || url.includes('localhost') || url.includes('0.0.0.0');
 
-  if (isLocal && typeof window !== 'undefined' && typeof window.api?.executeCommand === 'function') {
+  if (
+    isLocal &&
+    typeof window !== 'undefined' &&
+    typeof window.api?.executeCommand === 'function'
+  ) {
     try {
       const wsUrl = url.startsWith('ws') ? url : `ws://${url}`;
       const cmd = token
@@ -45,9 +49,15 @@ async function probeGateway(url: string, token: string): Promise<TestResult> {
       const res = await window.api.executeCommand(cmd);
       const out = (res.output ?? '').trim();
       const latencyMs = Date.now() - t0;
-      if (res.success || out.toLowerCase().includes('running') || out.toLowerCase().includes('ok')) {
+
+      if (
+        res.success ||
+        out.toLowerCase().includes('running') ||
+        out.toLowerCase().includes('ok')
+      ) {
         return { ok: true, latencyMs, method: 'cli', rawOutput: out };
       }
+
       if (out.length > 0) {
         return { ok: false, latencyMs, method: 'cli', error: '网关未运行', rawOutput: out };
       }
@@ -64,18 +74,23 @@ async function probeGateway(url: string, token: string): Promise<TestResult> {
 
     const res = await fetch(httpUrl, { method: 'GET', signal: controller.signal, headers });
     clearTimeout(timer);
+
     const latencyMs = Date.now() - t0;
 
     if (res.status === 401 || res.status === 403) {
       return { ok: false, latencyMs, method: 'http', error: '认证失败，Token 不正确' };
     }
+
     return { ok: true, latencyMs, method: 'http' };
   } catch (e: unknown) {
     const latencyMs = Date.now() - t0;
+
     if (e instanceof Error && e.name === 'AbortError') {
       return { ok: false, latencyMs, method: 'http', error: '连接超时（8s），请确认地址可达' };
     }
+
     const msg = e instanceof Error ? e.message : '';
+
     if (
       msg.includes('ECONNREFUSED') ||
       msg.includes('Failed to fetch') ||
@@ -88,6 +103,7 @@ async function probeGateway(url: string, token: string): Promise<TestResult> {
         error: '连接被拒绝，Gateway 未运行或端口未开放',
       };
     }
+
     return { ok: false, latencyMs, method: 'http', error: '无法连接：' + (msg || '未知错误') };
   }
 }
@@ -114,8 +130,9 @@ export default function ConnectTestPage() {
     if (configToken && !token) {
       setToken(configToken);
     }
+
     setGatewayUrl(`ws://127.0.0.1:${configPort}`);
-  }, [configPort, configToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [configPort, configToken]);
 
   const handleTest = useCallback(async () => {
     if (probing.current) return;
@@ -145,9 +162,7 @@ export default function ConnectTestPage() {
   };
 
   const handleOpenDashboard = () => {
-    const httpUrl = gatewayUrl
-      .replace(/^wss:\/\//, 'https://')
-      .replace(/^ws:\/\//, 'http://');
+    const httpUrl = gatewayUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
     const dashUrl = token ? `${httpUrl}/?token=${encodeURIComponent(token)}` : httpUrl;
     window.open(dashUrl, '_blank');
   };
@@ -188,7 +203,9 @@ export default function ConnectTestPage() {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-foreground mb-0.5">当前网关 Auth Token</p>
             <code className="text-[11px] font-mono text-muted-foreground break-all">
-              {showToken ? configToken : configToken.slice(0, 8) + '••••••••••••••••••••••••••••••••••••••••'}
+              {showToken
+                ? configToken
+                : configToken.slice(0, 8) + '••••••••••••••••••••••••••••••••••••••••'}
             </code>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -239,9 +256,7 @@ export default function ConnectTestPage() {
         {/* Token */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium text-muted-foreground">
-              Auth Token
-            </label>
+            <label className="block text-xs font-medium text-muted-foreground">Auth Token</label>
             {configToken && token !== configToken && (
               <button
                 onClick={() => setToken(configToken)}
@@ -267,8 +282,8 @@ export default function ConnectTestPage() {
             </button>
           </div>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
-            Token 来自 <code className="font-mono">~/.openclaw/openclaw.json</code>{' '}
-            的 <code className="font-mono">gateway.auth.token</code> 字段，在「配置文件」页可修改
+            Token 来自 <code className="font-mono">~/.openclaw/openclaw.json</code> 的{' '}
+            <code className="font-mono">gateway.auth.token</code> 字段，在「配置文件」页可修改
           </p>
         </div>
 
@@ -364,7 +379,11 @@ export default function ConnectTestPage() {
               >
                 <Terminal className="w-3 h-3" />
                 原始输出
-                {showOutput ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {showOutput ? (
+                  <ChevronUp className="w-3 h-3" />
+                ) : (
+                  <ChevronDown className="w-3 h-3" />
+                )}
               </button>
               {showOutput && (
                 <pre className="mt-2 p-3 rounded-lg bg-zinc-950 font-mono text-xs text-zinc-300 whitespace-pre-wrap max-h-40 overflow-y-auto">
@@ -380,14 +399,21 @@ export default function ConnectTestPage() {
       <div className="rounded-xl border border-border bg-muted/20 px-5 py-4 space-y-2">
         <p className="text-xs font-semibold text-foreground">如何使用 Gateway Dashboard？</p>
         <ol className="text-[11px] text-muted-foreground space-y-1 list-decimal list-inside leading-relaxed">
-          <li>点击上方「打开 Dashboard」按钮，Token 会自动附加在 URL 中（<code className="font-mono">?token=…</code>）</li>
+          <li>
+            点击上方「打开 Dashboard」按钮，Token 会自动附加在 URL 中（
+            <code className="font-mono">?token=…</code>）
+          </li>
           <li>
             如浏览器提示「token missing」，点击 Dashboard 右上角设置图标，将 Token 粘贴进去
             <span className="ml-1 text-primary cursor-pointer" onClick={handleCopyToken}>
               {tokenCopied ? '（已复制）' : '（点此复制 Token）'}
             </span>
           </li>
-          <li>Token 来源：<code className="font-mono">~/.openclaw/openclaw.json → gateway.auth.token</code>，保存配置后网关重启时会刷新</li>
+          <li>
+            Token 来源：
+            <code className="font-mono">~/.openclaw/openclaw.json → gateway.auth.token</code>
+            ，保存配置后网关重启时会刷新
+          </li>
         </ol>
       </div>
     </div>

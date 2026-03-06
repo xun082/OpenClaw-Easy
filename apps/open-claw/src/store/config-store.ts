@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
+import type { OpenclawModelEntry, ProviderConfig } from '@/lib/openclaw-providers';
 import { LEGACY_API_MAP, PROVIDER_MODELS, resolveModelListKey } from '@/lib/openclaw-providers';
-import type { ProviderConfig, OpenclawModelEntry } from '@/lib/openclaw-providers';
 
 // ─── Per-model alias / capability override (agents.defaults.models) ───────────
 
@@ -123,7 +123,9 @@ export function normalizeConfig(cfg: OpenclawConfig): OpenclawConfig {
     const cleanModels = Array.isArray(rawModels)
       ? (rawModels as unknown[]).filter(
           (m): m is OpenclawModelEntry =>
-            m !== null && typeof m === 'object' && typeof (m as Record<string, unknown>).id === 'string',
+            m !== null &&
+            typeof m === 'object' &&
+            typeof (m as Record<string, unknown>).id === 'string',
         )
       : undefined;
     providers[key] = {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Puzzle, BookOpen, Globe, Sparkles } from 'lucide-react';
+import { BookOpen, Globe, Puzzle, Sparkles } from 'lucide-react';
 
 const SUB_NAV = [
   { href: '/skills', label: '工作区', icon: Puzzle },
@@ -30,9 +30,7 @@ export default function SkillsLayout({ children }: { children: React.ReactNode }
               key={item.href}
               href={item.href}
               className={`relative flex items-center gap-1.5 py-3.5 text-sm font-medium transition-colors whitespace-nowrap ${
-                isActive
-                  ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-primary' : ''}`} />
