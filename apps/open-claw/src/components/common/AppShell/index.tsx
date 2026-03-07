@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileJson, Home, PlugZap, Puzzle, Settings, Terminal } from 'lucide-react';
+import { Bot, FileJson, Home, PlugZap, Puzzle, Settings, Terminal } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -24,6 +24,12 @@ const NAV_ITEMS = [
     label: '技能管理',
     sublabel: 'workspace / builtin',
     icon: Puzzle,
+  },
+  {
+    href: '/agents',
+    label: 'Agent 管理',
+    sublabel: '多 Agent · 路由 · 协作',
+    icon: Bot,
   },
   {
     href: '/config',
@@ -64,7 +70,10 @@ export default function AppShell({ children }: AppShellProps) {
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === '/'
+                ? pathname === '/'
+                : pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
 
             return (

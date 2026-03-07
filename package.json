@@ -1,5 +1,5 @@
 {
-  "name": "monorepo",
+  "name": "openclaw-manager",
   "version": "0.0.1",
   "description": "OpenClaw-Easy：包含 Electron 桌面端与 Web 前端的多包仓库，用于一站式构建与发布",
   "private": true,

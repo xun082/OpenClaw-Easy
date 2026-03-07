@@ -1,13 +1,33 @@
 import { create } from 'zustand';
 
 import type { OpenclawModelEntry, ProviderConfig } from '@/lib/openclaw-providers';
-import { LEGACY_API_MAP, PROVIDER_MODELS, resolveModelListKey } from '@/lib/openclaw-providers';
+import {
+  APIS_REQUIRING_MODELS,
+  LEGACY_API_MAP,
+  PROVIDER_MODELS,
+  resolveModelListKey,
+} from '@/lib/openclaw-providers';
 
 // ─── Per-model alias / capability override (agents.defaults.models) ───────────
 
 export interface AgentModelConfig {
   alias?: string;
   [key: string]: unknown;
+}
+
+// ─── Agent route binding ───────────────────────────────────────────────────────
+
+export interface AgentBindingPeer {
+  kind: 'private' | 'group' | 'channel';
+  id?: string;
+}
+
+export interface AgentBinding {
+  agentId: string;
+  match: {
+    channel: string;
+    peer?: AgentBindingPeer;
+  };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,8 +58,24 @@ export interface OpenclawConfig {
       workspace?: string;
       contextPruning?: { mode?: 'cache-ttl' | 'off' };
       model?: { primary?: string };
+      compaction?: { mode?: string };
       /** Per-model alias / capability overrides, keyed by "provider/modelId". */
       models?: Record<string, AgentModelConfig>;
+    };
+    /** Configured agent instances (from openclaw.json agents.list) */
+    list?: Array<{
+      id: string;
+      name?: string;
+      workspace?: string;
+      agentDir?: string;
+      model?: { primary?: string };
+    }>;
+  };
+  bindings?: AgentBinding[];
+  tools?: {
+    agentToAgent?: {
+      enabled?: boolean;
+      allow?: string[];
     };
   };
   channels?: {
@@ -110,6 +146,64 @@ export function normalizeConfig(cfg: OpenclawConfig): OpenclawConfig {
     };
   }
 
+  // Clean bindings — strip peer when id is missing (peer.id is required by schema
+  // when peer is present), and drop any binding that has no agentId.
+  if (Array.isArray(cfg.bindings)) {
+    cfg = {
+      ...cfg,
+      bindings: cfg.bindings
+        .filter((b) =>
+          (b.agentId ?? (b as unknown as Record<string, unknown>)['agentid'] ?? '')
+            .toString()
+            .trim(),
+        )
+        .map((b) => {
+          // Migrate legacy agentid → agentId
+          const agentId = (b.agentId ?? (b as unknown as Record<string, unknown>)['agentid'] ?? '')
+            .toString()
+            .trim();
+
+          return {
+            agentId,
+            match: {
+              channel: b.match.channel,
+              // Only include peer when id is present and non-empty; peer without id is rejected by schema
+              ...(b.match.peer?.id?.trim()
+                ? { peer: { kind: b.match.peer.kind, id: b.match.peer.id.trim() } }
+                : {}),
+            },
+          };
+        }),
+    };
+  }
+
+  // Clean tools.agentToAgent — strip empty strings from allow list
+  if (cfg.tools?.agentToAgent) {
+    const a2a = cfg.tools.agentToAgent;
+    cfg = {
+      ...cfg,
+      tools: {
+        ...cfg.tools,
+        agentToAgent: {
+          ...a2a,
+          ...(Array.isArray(a2a.allow) ? { allow: a2a.allow.filter((a) => a.trim()) } : {}),
+        },
+      },
+    };
+  }
+
+  // Migrate legacy agenttoagent → agentToAgent
+  if (cfg.tools && (cfg.tools as Record<string, unknown>)['agenttoagent']) {
+    const rawTools = cfg.tools as Record<string, unknown>;
+    const legacy = rawTools['agenttoagent'] as { enabled?: boolean; allow?: string[] };
+    const { agenttoagent: _removed, ...restTools } = rawTools;
+    void _removed;
+    cfg = {
+      ...cfg,
+      tools: { ...restTools, agentToAgent: legacy } as typeof cfg.tools,
+    };
+  }
+
   if (!cfg.models?.providers) return cfg;
 
   const providers: Record<string, ProviderConfig> = {};
@@ -133,6 +227,24 @@ export function normalizeConfig(cfg: OpenclawConfig): OpenclawConfig {
       api: migratedApi,
       ...(cleanModels && cleanModels.length > 0 ? { models: cleanModels } : {}),
     };
+  }
+
+  // Auto-populate models for APIs that require them when models are missing.
+  // This prevents the gateway from failing validation with "expected array, received undefined".
+  for (const key of Object.keys(providers)) {
+    const p = providers[key];
+
+    if (APIS_REQUIRING_MODELS.has(p.api) && (!p.models || p.models.length === 0)) {
+      const listKey = resolveModelListKey(key, p);
+      const catalog = listKey ? (PROVIDER_MODELS[listKey] ?? []) : [];
+
+      if (catalog.length > 0) {
+        providers[key] = {
+          ...p,
+          models: catalog.map((m) => ({ id: m.id, name: m.name })),
+        };
+      }
+    }
   }
 
   const normalizedCfg: OpenclawConfig = { ...cfg, models: { ...cfg.models, providers } };
@@ -181,6 +293,9 @@ interface ConfigStore {
   /** Apply an immutable update to the working config. */
   mutate: (updater: (prev: OpenclawConfig) => OpenclawConfig) => void;
 
+  /** True when normalizeConfig changed the loaded config — disk still has the old version. */
+  autoNormalized: boolean;
+
   /** Replace the working config without touching savedConfig (used for init). */
   setConfig: (config: OpenclawConfig | null) => void;
   setSavedConfig: (config: OpenclawConfig | null) => void;
@@ -206,6 +321,8 @@ interface ConfigStore {
   updateProvider: (name: string, patch: Partial<ProviderConfig>) => void;
   removeProvider: (name: string) => void;
   addProvider: (name: string, base: ProviderConfig) => void;
+  addProviderModel: (providerName: string, model: OpenclawModelEntry) => void;
+  removeProviderModel: (providerName: string, modelId: string) => void;
 
   // Agents
   setAgentWorkspace: (workspace: string) => void;
@@ -227,6 +344,19 @@ interface ConfigStore {
   setEnvVar: (oldKey: string, newKey: string, val: string) => void;
   addEnvVar: () => void;
   removeEnvVar: (key: string) => void;
+
+  // Bindings
+  addBinding: () => void;
+  updateBinding: (idx: number, patch: Partial<AgentBinding>) => void;
+  updateBindingMatch: (
+    idx: number,
+    patch: { channel?: string; peer?: Partial<AgentBindingPeer> },
+  ) => void;
+  removeBinding: (idx: number) => void;
+
+  // Agent-to-agent tools
+  setAgentToAgentEnabled: (enabled: boolean) => void;
+  setAgentToAgentAllow: (allow: string[]) => void;
 }
 
 const isElectronEnv = () =>
@@ -242,6 +372,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   saveStatus: 'idle',
   errorMsg: '',
   restartLog: null,
+  autoNormalized: false,
 
   // ── Core actions ──────────────────────────────────────────────────────────
 
@@ -254,8 +385,18 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
       if (res.success && res.content) {
         try {
-          const parsed = normalizeConfig(JSON.parse(res.content) as OpenclawConfig);
-          set({ config: parsed, savedConfig: parsed, exists: true });
+          const rawParsed = JSON.parse(res.content) as OpenclawConfig;
+          const normalized = normalizeConfig(rawParsed);
+          // If normalizeConfig changed anything (e.g. stripped invalid id:""),
+          // keep the raw version as savedConfig so isDirty=true and the user
+          // can save the cleaned version to disk to restore the gateway.
+          const wasNormalized = JSON.stringify(rawParsed) !== JSON.stringify(normalized);
+          set({
+            config: normalized,
+            savedConfig: wasNormalized ? rawParsed : normalized,
+            exists: true,
+            autoNormalized: wasNormalized,
+          });
         } catch {
           set({ config: EMPTY_CONFIG, savedConfig: EMPTY_CONFIG, exists: true });
         }
@@ -285,7 +426,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
         return;
       }
 
-      set({ savedConfig: config, exists: true });
+      set({ savedConfig: config, exists: true, autoNormalized: false });
 
       // Sync apiKeys to agent auth-profiles.json
       if (config.models?.providers) {
@@ -399,6 +540,43 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
         providers: { ...p.models?.providers, [name]: base },
       },
     })),
+
+  addProviderModel: (providerName, model) =>
+    get().mutate((p) => {
+      const existing = p.models?.providers?.[providerName];
+      if (!existing) return p;
+      const currentModels = existing.models ?? [];
+      if (currentModels.find((m) => m.id === model.id)) return p;
+      return {
+        ...p,
+        models: {
+          ...p.models,
+          providers: {
+            ...p.models?.providers,
+            [providerName]: { ...existing, models: [...currentModels, model] },
+          },
+        },
+      };
+    }),
+
+  removeProviderModel: (providerName, modelId) =>
+    get().mutate((p) => {
+      const existing = p.models?.providers?.[providerName];
+      if (!existing) return p;
+      return {
+        ...p,
+        models: {
+          ...p.models,
+          providers: {
+            ...p.models?.providers,
+            [providerName]: {
+              ...existing,
+              models: (existing.models ?? []).filter((m) => m.id !== modelId),
+            },
+          },
+        },
+      };
+    }),
 
   setAgentWorkspace: (workspace) =>
     get().mutate((p) => ({
@@ -514,6 +692,73 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
       return { ...p, env };
     }),
+
+  addBinding: () =>
+    get().mutate((p) => ({
+      ...p,
+      // No peer object in initial binding — peer requires id which we don't have yet
+      bindings: [...(p.bindings ?? []), { agentId: '', match: { channel: 'telegram' } }],
+    })),
+
+  updateBinding: (idx, patch) =>
+    get().mutate((p) => {
+      const bindings = [...(p.bindings ?? [])];
+      bindings[idx] = { ...bindings[idx], ...patch };
+
+      return { ...p, bindings };
+    }),
+
+  updateBindingMatch: (idx, patch) =>
+    get().mutate((p) => {
+      const bindings = [...(p.bindings ?? [])];
+      const prev = bindings[idx];
+
+      let newMatch: AgentBinding['match'];
+
+      if (patch.peer !== undefined) {
+        const prevPeer = prev.match.peer ?? { kind: 'group' as const };
+        const merged = { ...prevPeer, ...patch.peer };
+
+        // peer.id is required by schema when peer is present — drop peer if id is empty
+        if (!merged.id?.trim()) {
+          newMatch = {
+            channel: patch.channel ?? prev.match.channel,
+          };
+        } else {
+          newMatch = {
+            channel: patch.channel ?? prev.match.channel,
+            peer: merged as AgentBindingPeer,
+          };
+        }
+      } else {
+        newMatch = {
+          ...prev.match,
+          ...(patch.channel !== undefined ? { channel: patch.channel } : {}),
+        };
+      }
+
+      bindings[idx] = { ...prev, match: newMatch };
+
+      return { ...p, bindings };
+    }),
+
+  removeBinding: (idx) =>
+    get().mutate((p) => ({
+      ...p,
+      bindings: (p.bindings ?? []).filter((_, i) => i !== idx),
+    })),
+
+  setAgentToAgentEnabled: (enabled) =>
+    get().mutate((p) => ({
+      ...p,
+      tools: { ...p.tools, agentToAgent: { ...(p.tools?.agentToAgent ?? {}), enabled } },
+    })),
+
+  setAgentToAgentAllow: (allow) =>
+    get().mutate((p) => ({
+      ...p,
+      tools: { ...p.tools, agentToAgent: { ...(p.tools?.agentToAgent ?? {}), allow } },
+    })),
 }));
 
 // ─── Helper to auto-select first model for a provider ─────────────────────────

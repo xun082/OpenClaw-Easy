@@ -54,6 +54,13 @@ export const API_OPTIONS = [
   'ollama',
 ] as const;
 
+/** API types that require a non-empty `models` array in the provider config */
+export const APIS_REQUIRING_MODELS = new Set([
+  'openai-completions',
+  'openai-responses',
+  'openai-codex-responses',
+]);
+
 // ── Migrate legacy / invalid api values to valid ones ─────────────────────────
 
 export const LEGACY_API_MAP: Record<string, string> = {

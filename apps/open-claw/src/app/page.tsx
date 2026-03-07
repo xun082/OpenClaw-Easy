@@ -14,6 +14,9 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { EnvIntroSection } from './_components/EnvIntroSection';
+import { EnvRoadmap } from './_components/EnvRoadmap';
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type ToolId = 'node' | 'python' | 'ffmpeg' | 'ytdlp';
@@ -205,6 +208,9 @@ export default function Page() {
         </div>
       )}
 
+      {/* ── Intro ── */}
+      <EnvIntroSection />
+
       {/* ── Tool cards ── */}
       <div className="shrink-0 space-y-3 mb-5">
         {TOOLS.map(({ id, label, emoji, description }) => {
@@ -321,6 +327,9 @@ export default function Page() {
           );
         })}
       </div>
+
+      {/* ── Roadmap ── */}
+      <EnvRoadmap />
 
       {/* ── Terminal log panel ── */}
       {logs.length > 0 && (
